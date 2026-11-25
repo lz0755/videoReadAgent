@@ -1,0 +1,484 @@
+{
+  "schema_version": "m0-baseline-report-v1",
+  "run_id": "m0-baseline-offline-20261125T105412Z",
+  "generated_at_utc": "2026-11-25T10:54:16.064851+00:00",
+  "execution_mode": "offline",
+  "code_version": {
+    "git_commit": "d551c60992960e672b3f20f219d535fbbcbb6fa8",
+    "git_short_commit": "d551c60",
+    "git_branch": "main",
+    "git_dirty": true,
+    "workspace_code_tree_sha256": "bff64c2006014b4218ba3e22064de48936fd57b39f6699b31c5765fbb186c10f",
+    "tracked_file_count": 31,
+    "run_id": "m0-baseline-offline-20261125T105412Z"
+  },
+  "machine": {
+    "os": "Windows",
+    "os_release": "11",
+    "architecture": "AMD64",
+    "cpu_logical_count": 16,
+    "processor_family": "AMD64 Family 25 Model 116 Stepping 1, AuthenticAMD",
+    "total_ram_bytes": 50669670400,
+    "total_ram_gib": 47.19,
+    "python_version": "3.14.6",
+    "python_implementation": "CPython",
+    "ffmpeg_version": "ffmpeg version 8.1.2-essentials_build-www.gyan.dev Copyright (c) 2000-2026 the FFmpeg developers",
+    "ffprobe_version": "ffprobe version 8.1.2-essentials_build-www.gyan.dev Copyright (c) 2007-2026 the FFmpeg developers"
+  },
+  "dependencies": {
+    "uv_lock_sha256": "89da7437082eb9942855bf2cfe6b519bbeee901b05bd5dea28db122078b1c4e0",
+    "pyproject_toml_sha256": "ae87ee64de8674815ca60b78fefdffb91e3cdf934f2cff0dbcc6835118ca1741",
+    "packages": {
+      "httpx": "0.28.1",
+      "openai": "3.59.0",
+      "pillow": "13.0.0",
+      "pyyaml": "6.0.4",
+      "pytest": "9.2.0",
+      "pytest-socket": "0.8.1",
+      "ruff": "0.17.6",
+      "mypy": "2.4.1",
+      "import-linter": "2.17"
+    },
+    "pyav_available": false,
+    "faster_whisper_available": false
+  },
+  "model_and_sdk": {
+    "provider": "deepseek",
+    "api_family": "openai_chat_completions",
+    "base_url": "https://api.deepseek.com",
+    "configured_model_id": "deepseek-flash",
+    "documented_model_version": "DeepSeek-V4.1-Flash-1017",
+    "provider_config_sha256": "88ac320d62d4e13ef3441ce55c439f9afa7cbf62a3afde74e24531f4e0527c65",
+    "capabilities_sha256": "8a6ebfeca95a6a325f13f19d1e3a4d0b1847f932ad026d23a66d03d79bdbea1c",
+    "sdk_name": "openai",
+    "sdk_version": "3.59.0",
+    "httpx_version": "0.28.1",
+    "runtime_verified_capability_count": 0
+  },
+  "input_hashes": {
+    "run_id": "m0-baseline-offline-20261125T105412Z",
+    "dev_seed_manifest_sha256": "906e3e2bd94e79604a64a6515e442bde2ab0930733e5da456101412c19999c45",
+    "dev_seed_annotations_sha256": "35c27d9b962e3ab30a4b07bd1a44bfcc7e8a41816c0068cdb5b07dc5a61bd339",
+    "benchmark_subset_manifest_sha256": "430a75e93bdf862e9d48e2926b5256ff83ebf379d36d670cd5bea4c3b793295e",
+    "f01_f04_fixture_manifest_sha256": "368a94696703193139d8a8a8141efd022241bc0c1f515c2e4ba6ff7c17464559",
+    "m0_a1_frames_count": 26,
+    "m0_a1_frames_bundle_sha256": "fa1df8df17e25ef22e0b47427163519b052b7620a6d9b2ef33635b58f81b2d80",
+    "dev_seed_videos": [
+      {
+        "video_id": "vg_ae10_start",
+        "benchmark": "videogui",
+        "source_group_id": "videogui:AE_10",
+        "relative_path": "data/datasets/videogui/m0_dev/vg_ae10_start.mp4",
+        "byte_size": 4559173,
+        "sha256": "49116a696e120dd25e0d6fd783ab49194877650c8fd5389e1cbe46b1af7407d4",
+        "duration_ms": 5038,
+        "video_codec": "h264",
+        "has_audio": false
+      },
+      {
+        "video_id": "vg_pr10_start",
+        "benchmark": "videogui",
+        "source_group_id": "videogui:PR_10",
+        "relative_path": "data/datasets/videogui/m0_dev/vg_pr10_start.mp4",
+        "byte_size": 12037176,
+        "sha256": "bd2f517bd893549b3addf2cd9f385d73fa05acf4d29bd9c074e9a410ff6d9284",
+        "duration_ms": 9400,
+        "video_codec": "h264",
+        "has_audio": true
+      },
+      {
+        "video_id": "ocr_941",
+        "benchmark": "mme_videoocr",
+        "source_group_id": "mme_videoocr:941",
+        "relative_path": "data/datasets/mme_videoocr/m0_dev/ocr_941.mp4",
+        "byte_size": 5743181,
+        "sha256": "48617ac946fa8c1a694a50704054d5ef326da2dad3e12473a2831afb62be0afc",
+        "duration_ms": 30025,
+        "video_codec": "h264",
+        "has_audio": false
+      },
+      {
+        "video_id": "ocr_750",
+        "benchmark": "mme_videoocr",
+        "source_group_id": "mme_videoocr:750",
+        "relative_path": "data/datasets/mme_videoocr/m0_dev/ocr_750.mp4",
+        "byte_size": 18973714,
+        "sha256": "9ed08ea5b848ef24457cd7881c16f61db75621b13e67f94250fcd6548c4acd05",
+        "duration_ms": 60000,
+        "video_codec": "h264",
+        "has_audio": true
+      },
+      {
+        "video_id": "vmme_001",
+        "benchmark": "video_mme_v2",
+        "source_group_id": "video_mme_v2:001",
+        "relative_path": "data/datasets/video_mme_v2/m0_dev/vmme_001.mp4",
+        "byte_size": 34115582,
+        "sha256": "842dcc5971d2842c9f2e790ac6f7ded7c1908bec01621d3f652e7b85c05eb95d",
+        "duration_ms": 507054,
+        "video_codec": "hevc",
+        "has_audio": true
+      },
+      {
+        "video_id": "vmme_087",
+        "benchmark": "video_mme_v2",
+        "source_group_id": "video_mme_v2:087",
+        "relative_path": "data/datasets/video_mme_v2/m0_dev/vmme_087.mp4",
+        "byte_size": 26087349,
+        "sha256": "b523d2fc10447e8eaf651bfd44a0e7965cef46422a1a6afde6fd9bd229948df8",
+        "duration_ms": 277293,
+        "video_codec": "hevc",
+        "has_audio": true
+      }
+    ],
+    "combined_inputs_sha256": "e1bf95119dd6f1cca34736c14bcc797590e974bcc0fa14dc29d10a005be3263a"
+  },
+  "request_body_hashes": {
+    "run_id": "m0-baseline-offline-20261125T105412Z",
+    "offline_boundary_cases": [
+      {
+        "case_id": "14_images_4096px",
+        "image_count": 14,
+        "max_side_px": 4096,
+        "serialized_body_bytes": 42571,
+        "serialized_body_sha256": "9b1d83217621b9c6fa1c47c35e12765118cf31c904c7a6ceec11834bcd3fa14f",
+        "allowed_by_documented_contract": true
+      },
+      {
+        "case_id": "14_images_4097px",
+        "image_count": 14,
+        "max_side_px": 4097,
+        "serialized_body_bytes": 43355,
+        "serialized_body_sha256": "27bf96f4673a3d28c6e0b5c1141e32b871c141aa92b06f24a2e29c46de4ca9da",
+        "allowed_by_documented_contract": true
+      },
+      {
+        "case_id": "15_images_4096px",
+        "image_count": 15,
+        "max_side_px": 4096,
+        "serialized_body_bytes": 45597,
+        "serialized_body_sha256": "8d5621543a8718f8a83b71c5f7b6ee2bcfbe1b34ae97c6ea7d45f7f8e453e66f",
+        "allowed_by_documented_contract": true
+      },
+      {
+        "case_id": "15_images_4097px",
+        "image_count": 15,
+        "max_side_px": 4097,
+        "serialized_body_bytes": 46437,
+        "serialized_body_sha256": "007bc5eab0c7d49d378ca1ec668f68572afcbd4d5c056ba00b7404df469901c7",
+        "allowed_by_documented_contract": false
+      },
+      {
+        "case_id": "16_images_4096px",
+        "image_count": 16,
+        "max_side_px": 4096,
+        "serialized_body_bytes": 48623,
+        "serialized_body_sha256": "4b723e3985ed03932d821dd8ca5a75a72183693d5e01101bc721644c28283fa2",
+        "allowed_by_documented_contract": true
+      },
+      {
+        "case_id": "16_images_4097px",
+        "image_count": 16,
+        "max_side_px": 4097,
+        "serialized_body_bytes": 49519,
+        "serialized_body_sha256": "e7affeb467763942cdb164cd31aa730c9c525ca59a6383436ecc71019e3c0db1",
+        "allowed_by_documented_contract": false
+      },
+      {
+        "case_id": "15_images_ordinary_1080p_non_proof",
+        "image_count": 15,
+        "max_side_px": 1920,
+        "serialized_body_bytes": 191715,
+        "serialized_body_sha256": "d952b175de01341378b0d6b3a644e02620aa1019747d2f2b7f2771e317169b1d",
+        "allowed_by_documented_contract": true
+      },
+      {
+        "case_id": "body_over_48mib_offline_guard",
+        "image_count": 1,
+        "max_side_px": 1920,
+        "serialized_body_bytes": 12985,
+        "serialized_body_sha256": "7b20ea8aa5655e49cf1dd477f9cb14ee6140f005b83d5647657b06fc90219bec",
+        "allowed_by_documented_contract": false
+      }
+    ],
+    "m0_a1_roi_requests": [
+      {
+        "sample_id": "m0_a1_vg_sd6_gui",
+        "benchmark": "videogui",
+        "frame_sha256": "2ab3c81ead2b5c926b6c3fead30ebcfe2b9cd80dc3a97e88808e90b68c88b175",
+        "strategy_a_body_bytes": 365687,
+        "strategy_a_body_sha256": "714fcb1214e8864fb8e060af7debcab8d1f3ef2b41fe219e304719cf89a5b075",
+        "strategy_b_body_bytes": 299229,
+        "strategy_b_body_sha256": "bc33433f94d67676cb98ad62d54f1a7d4fde89b0ca21a06f1717f1354f2758e8"
+      },
+      {
+        "sample_id": "m0_a1_vg_ae_10_gui",
+        "benchmark": "videogui",
+        "frame_sha256": "efa1dd1ba045c2ffcb5dcb8caaecda1b3a0d8785c2abfe7f3c2eb3a71a56ed90",
+        "strategy_a_body_bytes": 536751,
+        "strategy_a_body_sha256": "32fa2a10ba68f729c711830ce7b7aad72531748e7ae930af56fa3097fdc3d6b6",
+        "strategy_b_body_bytes": 412589,
+        "strategy_b_body_sha256": "927148c67a18d3076961dc4c8d74ab940aae177120df7427c6bb89888133cccc"
+      },
+      {
+        "sample_id": "m0_a1_vg_pr_10_gui",
+        "benchmark": "videogui",
+        "frame_sha256": "edf6ddf2c33d3889fcc07271b736fbca2997d3194ec94886bd96838b5a990372",
+        "strategy_a_body_bytes": 302595,
+        "strategy_a_body_sha256": "e5b4523de3432605290257250dd5c417a23bfb4b67b9b2451ba0654c379edc3b",
+        "strategy_b_body_bytes": 302965,
+        "strategy_b_body_sha256": "4021f0402cce49f4c4dcdf57d16a3c03e32eecc9dedafb404a7513329f9008fc"
+      },
+      {
+        "sample_id": "m0_a1_vg_ps_10_gui",
+        "benchmark": "videogui",
+        "frame_sha256": "e8f9dc21864cd5122bef3b5665eba80c16a9b28c22b8081ad5182004cded534b",
+        "strategy_a_body_bytes": 508519,
+        "strategy_a_body_sha256": "abbc00e8d13cb3a3aba9e9667f651d164a57e6e151354cd22f13dadc4c394725",
+        "strategy_b_body_bytes": 365913,
+        "strategy_b_body_sha256": "61712d00f83134fbd9fba86f2f0a63f02902480689561f156f8ef2acf0049f48"
+      },
+      {
+        "sample_id": "m0_a1_vg_dv_10_gui",
+        "benchmark": "videogui",
+        "frame_sha256": "85cae8675b2ebf2d6b7ce7d9014a7bc54b24c34d2992994ba5968c6d7173ee93",
+        "strategy_a_body_bytes": 413983,
+        "strategy_a_body_sha256": "710237c4922f9e7f64183c3be88f7ba90db72f176145fea3daad61b318635d7c",
+        "strategy_b_body_bytes": 278801,
+        "strategy_b_body_sha256": "6ffc3ecb75cdb34cc916d73f2d07e3bbcf64a96d3fd48f3f189ee93b52907696"
+      },
+      {
+        "sample_id": "m0_a1_ocr_941_dialog",
+        "benchmark": "mme_videoocr",
+        "frame_sha256": "2eecdb0551fd559fc64da88cf737c4305744a995b15bdcc164133a86a8822575",
+        "strategy_a_body_bytes": 243643,
+        "strategy_a_body_sha256": "6e29fbfce17727e441e50138940126615ced6164a3ac6fd01febe0ab8231c05a",
+        "strategy_b_body_bytes": 238621,
+        "strategy_b_body_sha256": "cc99cabe8528c6f30b2d8eac504dd71738d108cd3f83568764a3d0cd273a42f7"
+      },
+      {
+        "sample_id": "m0_a1_ocr_903_chinese_ocr",
+        "benchmark": "mme_videoocr",
+        "frame_sha256": "82d160b14666bdb28ab3d5a552dba6bcb5201d31435952c5397d0e3464d8a564",
+        "strategy_a_body_bytes": 212143,
+        "strategy_a_body_sha256": "898b1ec34d877fd9a820de1d96b9b08a98ae76c300d8057fc7c626cb6278fb84",
+        "strategy_b_body_bytes": 354537,
+        "strategy_b_body_sha256": "5be49e12b3308384a8403dc3c3a927e3b5c6abfd5200f6af4af62e3d7992380c"
+      },
+      {
+        "sample_id": "m0_a1_ocr_1243_ide_code",
+        "benchmark": "mme_videoocr",
+        "frame_sha256": "6ad0fc71b8fb7f18e603e60a7a6bb7cd9bddc3b6add3ed301d16ce439c9bb599",
+        "strategy_a_body_bytes": 75427,
+        "strategy_a_body_sha256": "38acae984f8821f8042e3ff3a8ba232edd882673ebab4441fdd2dacd4d8fca45",
+        "strategy_b_body_bytes": 139669,
+        "strategy_b_body_sha256": "f9679c8e5d53168a4acb47d736ef20ddc299478f262ac8a65a8dc55f91d54879"
+      }
+    ],
+    "m0_a1_multi_image_order_requests": [
+      {
+        "sample_id": "m0_a1_ocr_905_typing_order",
+        "benchmark": "mme_videoocr",
+        "frame_count": 4,
+        "serialized_body_bytes": 957304,
+        "serialized_body_sha256": "b9043bdbbcddf50d7e535e77b7b00d70a16744e13165d397725094311160681c",
+        "pts_strictly_increasing": true
+      },
+      {
+        "sample_id": "m0_a1_vmme_001_order",
+        "benchmark": "video_mme_v2",
+        "frame_count": 4,
+        "serialized_body_bytes": 944342,
+        "serialized_body_sha256": "01ef5900b12a51aba23397c9090892360fbaa3edce760c4ae138f4c52bbedcce",
+        "pts_strictly_increasing": true
+      },
+      {
+        "sample_id": "m0_a1_vmme_087_procedural",
+        "benchmark": "video_mme_v2",
+        "frame_count": 4,
+        "serialized_body_bytes": 615275,
+        "serialized_body_sha256": "120b866cb34b9c340cdad9a237d5cbfcfd6ce7cd60a2d39d3372f5d4e6f53041",
+        "pts_strictly_increasing": true
+      }
+    ],
+    "combined_request_bodies_sha256": "bfc47944e6c5145a5b68461a977b0fed4a77f07915ce5a38aa341617b55307fe"
+  },
+  "stage_timings_and_rtf": {
+    "run_id": "m0-baseline-offline-20261125T105412Z",
+    "total_run_duration_ms": 3804,
+    "extrapolates_to_10min_full_pipeline": false,
+    "measured_scope_note": "Measures offline D0 disk SHA-256 validation, F01-F04 FFmpeg fixture generation/self-check, packet-level ffprobe demux across all 6 D0 dev videos (total 888.8s, longest clip 507.1s), and M0-A1 request body serialization. Full ASR + Vision + FTS indexing RTF is not_tested_yet and MUST NOT be extrapolated from offline ffprobe/serialization timings.",
+    "stages": {
+      "d0_manifest_validation": {
+        "duration_ms": 86,
+        "verified_videos": 6,
+        "question_count": 24,
+        "answerable_count": 20,
+        "not_answerable_count": 4
+      },
+      "f01_f04_fixture_self_check": {
+        "duration_ms": 2088,
+        "passed_fixtures": 4,
+        "fixture_ids": [
+          "F01",
+          "F02",
+          "F03",
+          "F04"
+        ]
+      },
+      "dev_seed_media_probe": {
+        "duration_ms": 688,
+        "probe_mode": "ffprobe_packet_pts_demux",
+        "total_media_duration_ms": 888810,
+        "longest_clip_duration_ms": 507054,
+        "aggregate_probe_rtf": 0.00077,
+        "per_video": [
+          {
+            "video_id": "vg_ae10_start",
+            "media_duration_ms": 5038,
+            "video_codec": "h264",
+            "video_packet_count": 151,
+            "probe_duration_ms": 86,
+            "demux_probe_rtf": 0.01707
+          },
+          {
+            "video_id": "vg_pr10_start",
+            "media_duration_ms": 9400,
+            "video_codec": "h264",
+            "video_packet_count": 235,
+            "probe_duration_ms": 145,
+            "demux_probe_rtf": 0.01543
+          },
+          {
+            "video_id": "ocr_941",
+            "media_duration_ms": 30025,
+            "video_codec": "h264",
+            "video_packet_count": 720,
+            "probe_duration_ms": 85,
+            "demux_probe_rtf": 0.00283
+          },
+          {
+            "video_id": "ocr_750",
+            "media_duration_ms": 60000,
+            "video_codec": "h264",
+            "video_packet_count": 1440,
+            "probe_duration_ms": 93,
+            "demux_probe_rtf": 0.00155
+          },
+          {
+            "video_id": "vmme_001",
+            "media_duration_ms": 507054,
+            "video_codec": "hevc",
+            "video_packet_count": 12675,
+            "probe_duration_ms": 135,
+            "demux_probe_rtf": 0.00027
+          },
+          {
+            "video_id": "vmme_087",
+            "media_duration_ms": 277293,
+            "video_codec": "hevc",
+            "video_packet_count": 8317,
+            "probe_duration_ms": 116,
+            "demux_probe_rtf": 0.00042
+          }
+        ]
+      },
+      "provider_probe_offline_serialization": {
+        "duration_ms": 939,
+        "boundary_case_count": 8,
+        "m0_a1_roi_case_count": 8,
+        "m0_a1_order_case_count": 3,
+        "verified_real_frames": 26
+      }
+    }
+  },
+  "peak_memory": {
+    "run_id": "m0-baseline-offline-20261125T105412Z",
+    "measurement_method": "windows_GetProcessMemoryInfo_PeakWorkingSetSize+python_tracemalloc",
+    "process_peak_rss_bytes": 130760704,
+    "process_peak_rss_mib": 124.7,
+    "python_tracemalloc_peak_bytes": 5474171,
+    "python_tracemalloc_peak_mib": 5.22,
+    "note": "process_peak_rss_bytes captures the Python baseline process peak working set during this correlated run; external ffmpeg/ffprobe child subprocesses run in separate OS address spaces."
+  },
+  "usage_and_cost": {
+    "run_id": "m0-baseline-offline-20261125T105412Z",
+    "live_executed": false,
+    "model_attempts": 0,
+    "provider_http_attempts": 0,
+    "images_sent_to_provider": 0,
+    "bytes_transferred_to_provider": 0,
+    "estimated_cost_usd": 0.0,
+    "confirmed_cost_usd": 0.0,
+    "cost_status": "confirmed",
+    "live_model_usage_status": "not_tested_live",
+    "note": "Zero external provider calls occurred in this offline baseline run (confirmed $0.00 cloud spend). Live DeepSeek token usage, latency, and small-text quality remain not_tested_live pending API credentials and explicit M0.0 cloud_egress_authorized=true."
+  },
+  "d1_annotation_plan": {
+    "owner_handle": "lz0755",
+    "owner_role": "Repository Owner / Lead Developer (single-person P0 project; explicit single-annotator disclosure per Plan §7.1)",
+    "effort_budget_person_days": "2-4",
+    "budget_separation_note": "D1 annotation effort (2-4 person-days) is tracked separately from the 25 net engineering person-days and must not be compressed by skipping tests.",
+    "freeze_gate_milestone": "M3_exit",
+    "freeze_rule": "All 24 videos (16 dev / 64 Qs + 8 holdout / 32 Qs) and 20 separate holdout event_localization annotations must be frozen with SHA-256 hashes before M4 formal QA tuning begins. M6 holdout answers remain strictly isolated from M0/M1.5/M4.",
+    "independent_reviewer_plan": "Target >=20% second-reviewer verification audit on formal answers prior to M3 exit freeze. If single-person staffing persists at M3 exit, run a documented delayed blind self-audit (>=7-day cooling window) and disclose single-reviewer limitation in the M6 evaluation report per Plan §7.1.",
+    "raw_media_readiness": "All 24 benchmark videos (6 m0_dev + 10 d1_dev_extra + 8 m6_holdout; 0.4178 GB <= 20 GB cap) are already curated, ffprobe-checked, SHA-256 hashed, and source-group isolated under gitignored data/datasets/.",
+    "remaining_deliverables": {
+      "d0_dev_videos_completed": 6,
+      "d0_dev_questions_completed": 24,
+      "d1_dev_extra_videos_curated": 10,
+      "d1_dev_extra_questions_remaining": 40,
+      "m6_holdout_videos_curated": 8,
+      "m6_holdout_questions_remaining": 32,
+      "m6_holdout_answerable_questions": 24,
+      "m6_holdout_not_answerable_questions": 8,
+      "m6_holdout_events_remaining": 20,
+      "total_frozen_videos_at_m3_exit": 24,
+      "total_frozen_standard_questions_at_m3_exit": 96,
+      "total_frozen_event_requests_at_m3_exit": 20
+    },
+    "schedule": [
+      {
+        "phase": "D1-1",
+        "milestone_window": "During M1 (Engineering Skeleton & Contracts)",
+        "owner": "lz0755",
+        "effort_estimate": "0.5-1.0 person-day",
+        "target": "Annotate first 5 d1_dev_extra videos (vg_ae11_start, vg_cc11_start, ocr_905, ocr_903, ocr_1243) -> +20 verifiable dev questions."
+      },
+      {
+        "phase": "D1-2",
+        "milestone_window": "During M1.5-M2 (Vertical Slice & Media Hardening)",
+        "owner": "lz0755",
+        "effort_estimate": "0.5-1.0 person-day",
+        "target": "Annotate remaining 5 d1_dev_extra videos (ocr_935, vmme_011, vmme_082, vmme_104, vmme_113) -> +20 dev questions (64 dev Qs complete)."
+      },
+      {
+        "phase": "D1-3",
+        "milestone_window": "During M2-M3 (Timeline & Indexing)",
+        "owner": "lz0755 (isolated holdout vault only)",
+        "effort_estimate": "0.5-1.0 person-day",
+        "target": "Curate & verify 32 isolated m6_holdout Qs (24 answerable + 8 not_answerable) plus 20 visible-boundary holdout events for M4.5/M6 event_localization."
+      },
+      {
+        "phase": "D1-4",
+        "milestone_window": "M3_exit (Hard Gate Before M4 Tuning)",
+        "owner": "lz0755 + independent reviewer (>=20% audit or disclosed delayed audit)",
+        "effort_estimate": "0.5-1.0 person-day",
+        "target": "Audit >=20% answers & event boundaries, verify zero dev/holdout overlap, freeze manifests, annotations, SHA-256 hashes, and metric scripts."
+      }
+    ]
+  },
+  "decision_and_gates": {
+    "adr_path": "docs/decisions/ADR-001.md",
+    "verdict": "pause_pending_live_verification",
+    "m0_a1_status": "offline_verified_pending_live_credentials_and_egress_consent",
+    "m0_a2_status": "passed_offline",
+    "m0_a3_status": "baseline_recorded_pending_live_usage_and_independent_review",
+    "handoff_audit": {
+      "PR-M0.0": "pending_independent_review",
+      "PR-M0.1": "pending_independent_review (disclosed_process_deviation: no pre-implementation frozen Step A commit)",
+      "PR-M0.2": "pending_independent_review (Step A -> Step B recorded)",
+      "PR-M0.3": "pending_independent_review (Step A -> Step B recorded)"
+    }
+  }
+}

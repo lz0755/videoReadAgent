@@ -1,0 +1,449 @@
+{
+  "schema_version": "m0.3-dev-seed-annotations-v1",
+  "split": "m0_dev",
+  "annotation_disclosure": "Single-reviewer initial D0 annotations combining upstream benchmark labels (MME-VideoOCR, Video-MME v2) and direct frame/subtitle verification; independent second-reviewer audit pending before D1/M3 freeze.",
+  "questions": [
+    {
+      "question_id": "vg_ae10_start_q1",
+      "video_id": "vg_ae10_start",
+      "question_text": "What large uppercase word is displayed across the center of the video, and what color is the lettering?",
+      "category": "visual_text_recognition",
+      "answerability": "answerable",
+      "reference_answer": "The uppercase word \"SUNRISE\" in bold red block letters.",
+      "expected_gaps": [],
+      "evidence_refs": [
+        {
+          "start_ms": 0,
+          "end_ms": 5038,
+          "modality": "visual",
+          "basis": "Directly inspected frames at 500ms, 2500ms, and 4500ms show large bold red uppercase text 'SUNRISE' centered on screen."
+        }
+      ],
+      "verification_basis": "Direct visual inspection of vg_ae10_start.mp4 frames at 500ms, 2500ms, and 4500ms."
+    },
+    {
+      "question_id": "vg_ae10_start_q2",
+      "video_id": "vg_ae10_start",
+      "question_text": "What natural environment appears in the background behind the text?",
+      "category": "scene_observation",
+      "answerability": "answerable",
+      "reference_answer": "An ocean beach shoreline under a purple-and-orange twilight/sunrise sky with rolling waves reflecting the sky on wet sand.",
+      "expected_gaps": [],
+      "evidence_refs": [
+        {
+          "start_ms": 500,
+          "end_ms": 4500,
+          "modality": "visual",
+          "basis": "Directly inspected frames across 500ms-4500ms show coastal waves, wet beach reflection, horizon clouds, and warm orange-purple sky."
+        }
+      ],
+      "verification_basis": "Direct visual inspection of vg_ae10_start.mp4 frames at 500ms, 2500ms, and 4500ms."
+    },
+    {
+      "question_id": "vg_ae10_start_q3",
+      "video_id": "vg_ae10_start",
+      "question_text": "Does the centered title text remain visible across the beginning, middle, and end of this 5-second clip?",
+      "category": "temporal_consistency",
+      "answerability": "answerable",
+      "reference_answer": "Yes; the red \"SUNRISE\" title remains centered and visible at 0.5s, 2.5s, and 4.5s across the clip.",
+      "expected_gaps": [],
+      "evidence_refs": [
+        {
+          "start_ms": 500,
+          "end_ms": 4500,
+          "modality": "visual",
+          "basis": "Frames at 500ms, 2500ms, and 4500ms all show the same centered red 'SUNRISE' title overlay."
+        }
+      ],
+      "verification_basis": "Direct multi-timestamp frame check (500ms, 2500ms, 4500ms) on vg_ae10_start.mp4."
+    },
+    {
+      "question_id": "vg_ae10_start_q4",
+      "video_id": "vg_ae10_start",
+      "question_text": "What specific city or beach name is spoken by the narrator or shown as a location caption in this video?",
+      "category": "unanswerable_absence",
+      "answerability": "not_answerable",
+      "reference_answer": null,
+      "expected_gaps": [
+        "The video has no audio track (has_audio=false), so there is no narrator.",
+        "No city or beach location caption is displayed in the frames."
+      ],
+      "evidence_refs": [
+        {
+          "start_ms": 0,
+          "end_ms": 5038,
+          "modality": "absent_verified",
+          "basis": "ffprobe confirms no audio stream; frames across 500ms-4500ms show only the word 'SUNRISE' over the beach with no geographic label."
+        }
+      ],
+      "verification_basis": "Verified via ffprobe (has_audio=false) and full-clip frame inspection of vg_ae10_start.mp4."
+    },
+    {
+      "question_id": "vg_pr10_start_q1",
+      "video_id": "vg_pr10_start",
+      "question_text": "What store name and main offer text are printed on the red-and-yellow sign held in the center of the street scene?",
+      "category": "small_text_ocr",
+      "answerability": "answerable",
+      "reference_answer": "The sign reads \"ADAMS GOLD\", \"We pay cash for GOLD\", \"BEST PRICES PAID\", and \"We will beat ANY quotation\", topped by a right-pointing yellow arrow.",
+      "expected_gaps": [],
+      "evidence_refs": [
+        {
+          "start_ms": 1000,
+          "end_ms": 8500,
+          "modality": "visual",
+          "basis": "Directly inspected frames at 1000ms, 4500ms, and 8500ms clearly show the 'ADAMS GOLD' sign with 'We pay cash for GOLD', 'BEST PRICES PAID', and 'We will beat ANY quotation'."
+        }
+      ],
+      "verification_basis": "Direct high-resolution frame inspection of vg_pr10_start.mp4 at 1000ms, 4500ms, and 8500ms."
+    },
+    {
+      "question_id": "vg_pr10_start_q2",
+      "video_id": "vg_pr10_start",
+      "question_text": "How does the uniformed police officer's horizontal position change between approximately 1 second and 8.5 seconds?",
+      "category": "action_order",
+      "answerability": "answerable",
+      "reference_answer": "At ~1.0s the police officer stands on the far right side of the frame facing left; by ~8.5s the officer has walked toward the center of the street near the ADAMS GOLD sign with the back 'POLICE' patch visible.",
+      "expected_gaps": [],
+      "evidence_refs": [
+        {
+          "start_ms": 1000,
+          "end_ms": 8500,
+          "modality": "visual",
+          "basis": "Frame at 1000ms shows the officer on the right edge; frame at 8500ms shows the officer in the center near the sign with 'POLICE' on the back."
+        }
+      ],
+      "verification_basis": "Direct sequential frame comparison at 1000ms, 4500ms, and 8500ms on vg_pr10_start.mp4."
+    },
+    {
+      "question_id": "vg_pr10_start_q3",
+      "video_id": "vg_pr10_start",
+      "question_text": "What vehicle color and parked two-wheeled items appear in the right background behind the pedestrians?",
+      "category": "visual_detail",
+      "answerability": "answerable",
+      "reference_answer": "A blue car parked behind two bicycles on the right side of the background.",
+      "expected_gaps": [],
+      "evidence_refs": [
+        {
+          "start_ms": 1000,
+          "end_ms": 8500,
+          "modality": "visual",
+          "basis": "Frames at 1000ms, 4500ms, and 8500ms show a blue car parked on the right background with two bicycles in front of it."
+        }
+      ],
+      "verification_basis": "Direct frame inspection of vg_pr10_start.mp4 at 1000ms, 4500ms, and 8500ms."
+    },
+    {
+      "question_id": "vg_pr10_start_q4",
+      "video_id": "vg_pr10_start",
+      "question_text": "What exact gold buyback price per gram or store telephone number is listed on the ADAMS GOLD sign?",
+      "category": "unanswerable_absence",
+      "answerability": "not_answerable",
+      "reference_answer": null,
+      "expected_gaps": [
+        "No price per gram or telephone number appears on the ADAMS GOLD sign in the video."
+      ],
+      "evidence_refs": [
+        {
+          "start_ms": 0,
+          "end_ms": 9400,
+          "modality": "absent_verified",
+          "basis": "Inspected sign across 1000ms-8500ms; only the store title, small address line, and general slogan ('We pay cash for GOLD', 'BEST PRICES PAID', 'We will beat ANY quotation') appear, with no phone number or per-gram price."
+        }
+      ],
+      "verification_basis": "Direct inspection of the ADAMS GOLD sign across vg_pr10_start.mp4."
+    },
+    {
+      "question_id": "ocr_941_q1",
+      "video_id": "ocr_941",
+      "question_text": "In the Photoshop Auto-Align Layers dialog shown early in the video, what is the option directly to the right of \"Auto\" under \"Projection\"?",
+      "category": "small_text_ocr",
+      "answerability": "answerable",
+      "reference_answer": "Perspective.",
+      "expected_gaps": [],
+      "evidence_refs": [
+        {
+          "start_ms": 2000,
+          "end_ms": 5000,
+          "modality": "visual",
+          "basis": "Frame at 3000ms displays the 'Auto-Align Layers' dialog; under 'Projection', row 1 lists 'Auto', 'Perspective', 'Collage' from left to right."
+        }
+      ],
+      "verification_basis": "MME-VideoOCR video 941 spatial_grounding question verified directly on frame at 3000ms."
+    },
+    {
+      "question_id": "ocr_941_q2",
+      "video_id": "ocr_941",
+      "question_text": "In the same \"Projection\" section of the Auto-Align Layers dialog, what is the option directly to the left of \"Spherical\"?",
+      "category": "small_text_ocr",
+      "answerability": "answerable",
+      "reference_answer": "Cylindrical.",
+      "expected_gaps": [],
+      "evidence_refs": [
+        {
+          "start_ms": 2000,
+          "end_ms": 5000,
+          "modality": "visual",
+          "basis": "Frame at 3000ms shows row 2 under 'Projection' listing 'Cylindrical', 'Spherical', 'Reposition' from left to right."
+        }
+      ],
+      "verification_basis": "MME-VideoOCR video 941 spatial_grounding question verified directly on frame at 3000ms."
+    },
+    {
+      "question_id": "ocr_941_q3",
+      "video_id": "ocr_941",
+      "question_text": "In the Auto-Align Layers dialog, which Projection radio button is selected, and are the two Lens Correction checkboxes checked or unchecked?",
+      "category": "small_text_ocr",
+      "answerability": "answerable",
+      "reference_answer": "\"Auto\" is selected under Projection; both \"Vignette Removal\" and \"Geometric Distortion\" under Lens Correction are unchecked.",
+      "expected_gaps": [],
+      "evidence_refs": [
+        {
+          "start_ms": 2000,
+          "end_ms": 5000,
+          "modality": "visual",
+          "basis": "Frame at 3000ms clearly shows the filled radio dot on 'Auto' and empty checkboxes next to 'Vignette Removal' and 'Geometric Distortion'."
+        }
+      ],
+      "verification_basis": "Direct inspection of the Auto-Align Layers GUI dialog at 3000ms in ocr_941.mp4."
+    },
+    {
+      "question_id": "ocr_941_q4",
+      "video_id": "ocr_941",
+      "question_text": "What is the speaker's full name and what export file size in megabytes does he specify for After Effects?",
+      "category": "unanswerable_absence",
+      "answerability": "not_answerable",
+      "reference_answer": null,
+      "expected_gaps": [
+        "The speaker's face is blurred and his name is not displayed in the video.",
+        "The video has no audio track (has_audio=false) and the burned-in subtitles mention 'After Effects' and '60 72 frames' without specifying an export file size in megabytes."
+      ],
+      "evidence_refs": [
+        {
+          "start_ms": 0,
+          "end_ms": 30025,
+          "modality": "absent_verified",
+          "basis": "ffprobe confirms no audio stream; inspected frames at 3000ms, 15000ms, and 26000ms show blurred face and subtitles without speaker name or export file size."
+        }
+      ],
+      "verification_basis": "Verified via ffprobe (has_audio=false) and frame inspection across ocr_941.mp4."
+    },
+    {
+      "question_id": "ocr_750_q1",
+      "video_id": "ocr_750",
+      "question_text": "What channel branding appears in the top-right corner and what question does the street interviewer ask about movies?",
+      "category": "subtitle_and_logo_ocr",
+      "answerability": "answerable",
+      "reference_answer": "The top-right logo reads \"EASY BRITISH ENGLISH (...LEARNING ENGLISH FROM THE STREETS)\", and the interviewer asks people what the worst film they have ever watched is.",
+      "expected_gaps": [],
+      "evidence_refs": [
+        {
+          "start_ms": 0,
+          "end_ms": 10000,
+          "modality": "subtitle_and_audio",
+          "basis": "Frame at 5000ms shows top-right logo 'EASY BRITISH ENGLISH' and burned-in subtitle 'What is the worst film that you have ever watched?'."
+        }
+      ],
+      "verification_basis": "MME-VideoOCR video 750 topic question verified directly on frame at 5000ms."
+    },
+    {
+      "question_id": "ocr_750_q2",
+      "video_id": "ocr_750",
+      "question_text": "Which two movies are named as bad in the burned-in subtitle around 25 seconds while the interviewer talks to the two young men?",
+      "category": "subtitle_understanding",
+      "answerability": "answerable",
+      "reference_answer": "\"Sharknado\" and \"Piranha\" (\"yeah, Sharknado was bad. - Piranha is up there aswell.\").",
+      "expected_gaps": [],
+      "evidence_refs": [
+        {
+          "start_ms": 20000,
+          "end_ms": 30000,
+          "modality": "subtitle_and_audio",
+          "basis": "Frame at 25000ms shows burned-in subtitle 'is pretty bad, yeah, Sharknado was bad. - Piranha is up there aswell.'."
+        }
+      ],
+      "verification_basis": "MME-VideoOCR video 750 Sharknado question verified directly on frame at 25000ms."
+    },
+    {
+      "question_id": "ocr_750_q3",
+      "video_id": "ocr_750",
+      "question_text": "Which actor and film title does the man in the light-blue shirt and glasses mention around 35-45 seconds, and what plot detail does he describe?",
+      "category": "subtitle_understanding",
+      "answerability": "answerable",
+      "reference_answer": "He mentions Robert Redford in \"All at (is) Sea\", saying the character had no radio and ended up lighting a fire and rubbing a raft.",
+      "expected_gaps": [],
+      "evidence_refs": [
+        {
+          "start_ms": 32000,
+          "end_ms": 50000,
+          "modality": "subtitle_and_audio",
+          "basis": "Frame at 35000ms subtitle: 'This film recently with Robert Redford, All at (is) Sea and it was about'; frame at 45000ms subtitle: 'He had no radio and he ended up lighting a fire and rubbing a raft'."
+        }
+      ],
+      "verification_basis": "Direct inspection of frames at 35000ms and 45000ms in ocr_750.mp4."
+    },
+    {
+      "question_id": "ocr_750_q4",
+      "video_id": "ocr_750",
+      "question_text": "How much money did the interviewees say they paid for their cinema tickets or what box-office revenue did Sharknado earn?",
+      "category": "unanswerable_absence",
+      "answerability": "not_answerable",
+      "reference_answer": null,
+      "expected_gaps": [
+        "No ticket price or box-office revenue figure is mentioned or shown in the 60-second interview clip."
+      ],
+      "evidence_refs": [
+        {
+          "start_ms": 0,
+          "end_ms": 60000,
+          "modality": "absent_verified",
+          "basis": "Inspected frames across 5000ms-55000ms; interviewees only name disliked films and brief plot impressions without citing ticket prices or box-office numbers."
+        }
+      ],
+      "verification_basis": "Direct inspection across the 60-second clip ocr_750.mp4."
+    },
+    {
+      "question_id": "vmme_001_q1",
+      "video_id": "vmme_001",
+      "question_text": "What is the ethnicity of the protagonist's mother?",
+      "category": "visual_audio_reasoning",
+      "answerability": "answerable",
+      "reference_answer": "Chinese (the protagonist states her mother is Malaysian Chinese / full Chinese).",
+      "expected_gaps": [],
+      "evidence_refs": [
+        {
+          "start_ms": 127760,
+          "end_ms": 190724,
+          "modality": "visual_and_audio",
+          "basis": "Video-MME v2 benchmark question 001-1 (answer F: Chinese); verified in vmme_001_001.jsonl dialogue at 127.76s-190.72s ('Malaysia, Chinese Malaysian', 'Mum has full Chinese')."
+        }
+      ],
+      "verification_basis": "Upstream Video-MME v2 question 001-1 cross-checked against timestamped subtitle file vmme_001_001.jsonl."
+    },
+    {
+      "question_id": "vmme_001_q2",
+      "video_id": "vmme_001",
+      "question_text": "Why didn't the boss let the protagonist dress as Hello Kitty?",
+      "category": "causal_reasoning",
+      "answerability": "answerable",
+      "reference_answer": "Because her mother is Malaysian Chinese rather than Japanese (the boss dismisses Hello Kitty as a 'Japanese bobtail cat' after stereotyping her Malaysian Chinese heritage).",
+      "expected_gaps": [],
+      "evidence_refs": [
+        {
+          "start_ms": 179524,
+          "end_ms": 346084,
+          "modality": "visual_and_audio",
+          "basis": "Video-MME v2 benchmark question 001-2 (answer B: Because her mom is Malaysian Chinese); verified in vmme_001_001.jsonl at 179.52s-190.72s and 343.20s-346.08s ('Hello Kitty. Japanese bobtail cat.')."
+        }
+      ],
+      "verification_basis": "Upstream Video-MME v2 question 001-2 cross-checked against timestamped subtitle file vmme_001_001.jsonl."
+    },
+    {
+      "question_id": "vmme_001_q3",
+      "video_id": "vmme_001",
+      "question_text": "What is the central theme of this short film?",
+      "category": "plot_comprehension",
+      "answerability": "answerable",
+      "reference_answer": "Racial discrimination (the casting boss repeatedly rejects the mixed-race protagonist from every costume role based on racial/ethnic stereotypes).",
+      "expected_gaps": [],
+      "evidence_refs": [
+        {
+          "start_ms": 115600,
+          "end_ms": 355000,
+          "modality": "visual_and_audio",
+          "basis": "Video-MME v2 benchmark question 001-3 (answer A: Racial discrimination); supported across the casting interview dialogue in vmme_001_001.jsonl (115.6s-355.0s)."
+        }
+      ],
+      "verification_basis": "Upstream Video-MME v2 question 001-3 cross-checked against timestamped subtitle file vmme_001_001.jsonl."
+    },
+    {
+      "question_id": "vmme_001_q4",
+      "video_id": "vmme_001",
+      "question_text": "What does the performer segment near the end of the video aim to convey?",
+      "category": "plot_comprehension",
+      "answerability": "answerable",
+      "reference_answer": "It depicts the compromise of individual authenticity to align with collective norms.",
+      "expected_gaps": [],
+      "evidence_refs": [
+        {
+          "start_ms": 451838,
+          "end_ms": 507054,
+          "modality": "visual_and_audio",
+          "basis": "Video-MME v2 benchmark question 001-4 (answer H); corresponds to the closing musical/performer sequence from 451.84s to 507.05s."
+        }
+      ],
+      "verification_basis": "Upstream Video-MME v2 question 001-4 cross-checked against closing timestamps in vmme_001_001.jsonl."
+    },
+    {
+      "question_id": "vmme_087_q1",
+      "video_id": "vmme_087",
+      "question_text": "In the paper airplane folding steps shown in the video, if the mistaken step (folding the top triangle tip all the way to the bottom edge) is not corrected, will it affect the size of the final plane?",
+      "category": "procedural_reasoning",
+      "answerability": "answerable",
+      "reference_answer": "Yes, leaving that folding error uncorrected changes the final size of the paper airplane.",
+      "expected_gaps": [],
+      "evidence_refs": [
+        {
+          "start_ms": 0,
+          "end_ms": 180000,
+          "modality": "visual",
+          "basis": "Video-MME v2 benchmark question 087-1 (answer A: Yes), grounded in the paper airplane folding demonstration across 0-180s."
+        }
+      ],
+      "verification_basis": "Upstream Video-MME v2 question 087-1 on dev video vmme_087.mp4 (duration 277293ms)."
+    },
+    {
+      "question_id": "vmme_087_q2",
+      "video_id": "vmme_087",
+      "question_text": "Comparing the listed 7-step folding sequence against the video demonstration, in which numbered step does the folding error occur?",
+      "category": "procedural_reasoning",
+      "answerability": "answerable",
+      "reference_answer": "Step 4 (folding the entire top triangle downward).",
+      "expected_gaps": [],
+      "evidence_refs": [
+        {
+          "start_ms": 0,
+          "end_ms": 180000,
+          "modality": "visual",
+          "basis": "Video-MME v2 benchmark question 087-2 (answer F: Step 4), verified against the step-by-step folding procedure in vmme_087.mp4."
+        }
+      ],
+      "verification_basis": "Upstream Video-MME v2 question 087-2 on dev video vmme_087.mp4."
+    },
+    {
+      "question_id": "vmme_087_q3",
+      "video_id": "vmme_087",
+      "question_text": "How should the incorrect step in the paper airplane folding procedure be corrected to match the video?",
+      "category": "procedural_reasoning",
+      "answerability": "answerable",
+      "reference_answer": "Fold the top tip down to the center line, stopping about 2 cm from the bottom edge instead of touching the bottom edge.",
+      "expected_gaps": [],
+      "evidence_refs": [
+        {
+          "start_ms": 0,
+          "end_ms": 180000,
+          "modality": "visual",
+          "basis": "Video-MME v2 benchmark question 087-3 (answer H: Fold the top tip down to the center line, about 2 cm from the bottom edge)."
+        }
+      ],
+      "verification_basis": "Upstream Video-MME v2 question 087-3 on dev video vmme_087.mp4."
+    },
+    {
+      "question_id": "vmme_087_q4",
+      "video_id": "vmme_087",
+      "question_text": "If the same size paper is folded following the mistaken sequence (without fixing Step 4), how does the resulting plane compare in size with the one shown in the video?",
+      "category": "procedural_reasoning",
+      "answerability": "answerable",
+      "reference_answer": "Smaller than the one shown in the video.",
+      "expected_gaps": [],
+      "evidence_refs": [
+        {
+          "start_ms": 0,
+          "end_ms": 180000,
+          "modality": "visual",
+          "basis": "Video-MME v2 benchmark question 087-4 (answer H: Smaller than the one in the video)."
+        }
+      ],
+      "verification_basis": "Upstream Video-MME v2 question 087-4 on dev video vmme_087.mp4."
+    }
+  ]
+}
