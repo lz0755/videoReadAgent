@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -27,8 +28,6 @@ BENCHMARK_MANIFEST = REPO_ROOT / "experiments" / "manifests" / "benchmark_subset
 def _make_valid_fixture_dataset(
     tmp_path: Path,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    import hashlib
-
     videos: list[dict[str, Any]] = []
     questions: list[dict[str, Any]] = []
     for idx in range(1, 7):
@@ -117,7 +116,7 @@ def _make_valid_fixture_dataset(
     return videos, annotations
 
 
-def test_repo_dev_seed_manifest_and_24_questions_valid() -> None:
+def test_repo_dev_seed_manifest_and_24_questions_valid(tmp_path: Path) -> None:
     assert DEV_SEED_MANIFEST.is_file(), "eval/manifests/dev_seed.jsonl must exist"
     assert DEV_SEED_ANNOTATIONS.is_file(), "dev_seed_questions.json must exist"
     assert BENCHMARK_MANIFEST.is_file()
@@ -137,7 +136,6 @@ def test_repo_dev_seed_manifest_and_24_questions_valid() -> None:
         videos,
         annotations,
         repo_root=REPO_ROOT,
-        verify_files_on_disk=True,
         holdout_source_group_ids=holdout_groups,
         holdout_video_ids=holdout_ids,
     )
@@ -145,8 +143,76 @@ def test_repo_dev_seed_manifest_and_24_questions_valid() -> None:
     assert summary.question_count == D0_EXPECTED_TOTAL_QUESTIONS
     assert summary.answerable_count >= 18
     assert summary.not_answerable_count >= 3
-    assert summary.verified_on_disk_files == D0_EXPECTED_VIDEO_COUNT
     assert len(summary.m1_5_slice_video_ids) == 3
+
+    if any((REPO_ROOT / v["relative_path"]).parent.exists() for v in videos):
+        assert summary.verified_on_disk_files == D0_EXPECTED_VIDEO_COUNT
+    else:
+        assert summary.verified_on_disk_files == 0
+        # Clean checkout without gitignored data/: still exercise full on-disk SHA-256 verification
+        synth_videos, synth_annotations = _make_valid_fixture_dataset(tmp_path)
+        synth_summary = validate_dev_seed_dataset(
+            synth_videos,
+            synth_annotations,
+            repo_root=tmp_path,
+            verify_files_on_disk=True,
+            holdout_source_group_ids=holdout_groups,
+            holdout_video_ids=holdout_ids,
+        )
+        assert synth_summary.verified_on_disk_files == D0_EXPECTED_VIDEO_COUNT
+
+
+@pytest.mark.parametrize(
+    "case", ["complete", "clean", "empty", "missing", "size", "hash", "partial_corrupt"]
+)
+def test_repo_root_checks_entire_provisioned_dataset(tmp_path: Path, case: str) -> None:
+    videos, annotations = _make_valid_fixture_dataset(tmp_path)
+    paths = [tmp_path / v["relative_path"] for v in videos]
+    assert len(paths) == D0_EXPECTED_VIDEO_COUNT
+    for path, video in zip(paths, videos, strict=True):
+        contents = path.read_bytes()
+        assert (len(contents), hashlib.sha256(contents).hexdigest()) == (
+            video["byte_size"],
+            video["sha256"],
+        )
+
+    if case == "complete":
+        assert validate_dev_seed_dataset(
+            videos, annotations, repo_root=tmp_path
+        ).verified_on_disk_files == len(paths)
+        return
+    if case == "clean":
+        clean = tmp_path / "checkout"
+        clean.mkdir()
+        assert (
+            validate_dev_seed_dataset(videos, annotations, repo_root=clean).verified_on_disk_files
+            == 0
+        )
+        with pytest.raises(DatasetManifestError, match="file missing"):
+            validate_dev_seed_dataset(
+                videos, annotations, repo_root=clean, verify_files_on_disk=True
+            )
+        return
+    if case in {"empty", "missing", "partial_corrupt"}:
+        for path in paths if case == "empty" else paths[-1:]:
+            path.unlink()
+    if case == "partial_corrupt":
+        for path in paths[:-1]:
+            path.write_bytes(b"corrupt")
+    elif case == "size":
+        paths[0].write_bytes(b"short")
+    elif case == "hash":
+        paths[0].write_bytes(b"!" * paths[0].stat().st_size)
+
+    error = {
+        "empty": "file missing",
+        "missing": "file missing",
+        "size": "byte_size mismatch",
+        "hash": "sha256 hash mismatch",
+        "partial_corrupt": "byte_size mismatch",
+    }
+    with pytest.raises(DatasetManifestError, match=error[case]):
+        validate_dev_seed_dataset(videos, annotations, repo_root=tmp_path)
 
 
 def test_rejects_duplicate_source_group_id(tmp_path: Path) -> None:

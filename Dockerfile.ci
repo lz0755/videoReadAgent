@@ -1,0 +1,30 @@
+# Offline-testable CI image (M1.1)
+# Build stage installs OS tools + locked dependencies (may access network).
+# Runtime verification runs under `docker run --rm --network none ...` without secrets or mounts.
+FROM python:3.14-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    UV_LINK_MODE=copy
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ffmpeg curl git ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=ghcr.io/astral-sh/uv:0.13.9 /uv /usr/local/bin/uv
+
+WORKDIR /app
+
+COPY pyproject.toml uv.lock README.md AGENTS.md .gitattributes ./
+COPY Dockerfile.ci ./
+COPY .github ./.github
+COPY src ./src
+COPY config ./config
+COPY prompts ./prompts
+COPY experiments ./experiments
+COPY eval ./eval
+COPY tests ./tests
+
+RUN uv sync --frozen --no-editable
+
+CMD [".venv/bin/python", "-m", "video_agent.cli", "doctor", "--json"]

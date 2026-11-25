@@ -1,0 +1,28 @@
+# PR-M1.4 交接
+- 状态：待审核（不自批为已合并）；关联验收：M1-A2、M1-A3
+- 前置交接链接：`docs/handoff/PR-M1.2.md`、`docs/handoff/PR-M1.3.md`
+- 基线 commit、Step A commit 与测试 diff hash：基线 `5e3d4db`（未执行 git commit）；Step A 冻结测试文件 SHA-256（Step B 全程零改动）：
+  - `tests/integration/test_sqlite_contract.py`: `B40AF01268DA25546469DCD57DB92C11B1DF825B06E15A93B4990BA43A061BFD`
+  - `tests/integration/test_migrations.py`: `17435F7F131A39E5ED38DDBDCB55B0D99B60ACE4F3CEE6BF1B1EC79ABABFD1F1`
+- 本次单一行为与允许修改路径：统一 15 张 SQLite 表 DDL 与初始迁移、逐连接 PRAGMA 校验工厂、原子建单/发布事务、离线带锁顺序迁移器与 `data_root/worker.lock` OS 进程锁 helper；修改路径：`src/video_agent/adapters/storage/schema.sql`、`src/video_agent/adapters/storage/migrations/001_initial.sql`、`src/video_agent/adapters/storage/connection.py`、`src/video_agent/adapters/storage/migrate.py`、`src/video_agent/adapters/storage/worker_lock.py`、`tests/integration/test_sqlite_contract.py`、`tests/integration/test_migrations.py`。
+- 代码真相源链接及合同是否变化：`src/video_agent/adapters/storage/schema.sql`、`src/video_agent/adapters/storage/migrations/001_initial.sql`、`src/video_agent/adapters/storage/connection.py`、`src/video_agent/adapters/storage/migrate.py`、`src/video_agent/adapters/storage/worker_lock.py`（首次建立统一数据库 Schema 真相源，后续 PR 不得在其他位置自行 `CREATE TABLE`）。
+- 有效红灯：
+  - 命令：`uv run --no-sync pytest tests/integration/test_sqlite_contract.py tests/integration/test_migrations.py -q --disable-socket --allow-unix-socket --tb=line`
+  - 断言与退出码：exit 1（`7 failed in 0.10s`；Step 0 `NotImplementedError` 及缺失 `001_initial.sql`，零 `ImportError`）
+- 绿灯：
+  - `uv run --no-sync pytest tests/integration/test_sqlite_contract.py tests/integration/test_migrations.py tests/architecture -q --disable-socket --allow-unix-socket` → exit 0（`14 passed`）
+  - `uv run --no-sync lint-imports` / `uv run --no-sync ruff check src experiments tests` / `uv run --no-sync mypy src/video_agent experiments tests` → exit 0
+- Fixture Self Check、真实集成与断网验证结果：全部测试使用真实 `tmp_path` 磁盘 SQLite 3.50.4 与真实独立 Python 子进程争夺 `worker.lock`（零 Mock `sqlite3`/`subprocess`/文件系统）：
+  - SQL trace 证明 `PRAGMA foreign_keys = ON` 与 `PRAGMA busy_timeout = 5000` 均在首次 `BEGIN IMMEDIATE` 之前执行；bootstrap 与第二条连接均读回 `foreign_keys=1`、`busy_timeout=5000`、`journal_mode=wal` 且返回时 `in_transaction=False`。
+  - 组合外键与部分唯一索引在真实 SQLite 中阻断跨资产 `source_artifact_id`、非 `source_video` 绑定、跨资产 `observation_evidence`、重复 `analysis`/`qa` 作业、伪区间帧证据与 `IDEMPOTENCY_CONFLICT`。
+  - `schema.sql` 快照初始化与 `migrations/001_initial.sql` 顺序升级结构完全等价；中途故障迁移完整 `ROLLBACK` 不留虚假 `schema_migrations` 行；篡改历史迁移触发 checksum 校验失败；释放 OS 锁不删除 `worker.lock` 且句柄设为非继承（`os.set_inheritable(fd, False)`）。
+- 未运行检查及原因：完整单 Worker 作业循环与中断恢复演练归属 M5.2a/M5.2b，不在 M1.4 范围。
+- 实际模型/HTTP/工具/图片调用数；estimated/confirmed/unknown：0 次模型调用、0 次 HTTP 调用、0 张外发图片；`confirmed`（0.0 USD）。
+- 依赖锁、模型、Prompt bundle、Schema 与数据版本：`uv.lock` 未改动；数据库迁移版本 `001`（15 张统一表含 FTS5 `search_fts`）。
+- 已知限制、恢复/回滚方式、独立审查结论：P0 迁移固定为停全部写入口后的离线流程，不做热迁移；`worker.lock` 依赖本地文件系统 OS 锁，不面向网络文件系统；回滚可移除新增 storage 模块与测试；待独立审查。
+- 下一PR需要读取的文件和仍未解决问题：M1.6 读取 `AGENTS.md`、`src/video_agent/domain/errors.py`、`docs/handoff/PR-M1.4.md`；M3/M5 建库必须复用 `connect_sqlite`/`run_migrations`。
+- 独立审查返工修复（两轮 TDD，状态仍保持 `待审核`）：
+  - Step A 冻结测试哈希（Step B 全程零改动）：`tests/integration/test_sqlite_contract.py`: `B056FB724AB030986D2E80B867FC202734B9B7BCF48C3AAB45F9F9A68AD12C94`
+  - 修复内容：`publish_answer_and_finish_job` 拒绝所有非终态 `job_status`（如 `running`/`queued`）且仅允许从活跃态 `queued`/`running` 原子更新至终态（`succeeded`/`partial`/`failed`/`cancelled`）；`schema.sql` 与 `migrations/001_initial.sql`（字节一致）为 `evidence`/`observations`/`search_docs`/`assets`/`artifacts` 的毫秒与整数字段增加 `typeof(...) = 'integer'` 磁盘 CHECK 约束，直接拒绝 `1.5` 等 `REAL` 写入。
+  - 红/绿灯结果：Step A 回归测试行为红灯（`job_status="running"` 未抛错）；Step B 修复后磁盘重开验证零泄漏且 `143 passed` 全部绿灯；未伪造事后 Step A commit。
+

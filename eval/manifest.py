@@ -166,12 +166,47 @@ def _validate_evidence_refs(
             )
 
 
+def _verify_dev_seed_files(
+    videos: list[dict[str, Any]], repo_root: Path | None, verify_files_on_disk: bool | None
+) -> int:
+    if repo_root is None:
+        if verify_files_on_disk:
+            raise DatasetManifestError("repo_root is required when verify_files_on_disk=True")
+        return 0
+    if verify_files_on_disk is False:
+        return 0
+
+    paths = [repo_root / str(entry["relative_path"]) for entry in videos]
+    if verify_files_on_disk is None and not any(path.parent.exists() for path in paths):
+        return 0
+
+    for entry, path in zip(videos, paths, strict=True):
+        video_id = entry["video_id"]
+        if not path.is_file():
+            raise DatasetManifestError(
+                f"Video {video_id} file missing on disk: {entry['relative_path']}"
+            )
+        actual_size = path.stat().st_size
+        if actual_size != entry["byte_size"]:
+            raise DatasetManifestError(
+                f"Video {video_id} byte_size mismatch: "
+                f"expected {entry['byte_size']}, got {actual_size}"
+            )
+        actual_sha = _compute_file_sha256(path)
+        if actual_sha != entry["sha256"]:
+            raise DatasetManifestError(
+                f"Video {video_id} sha256 hash mismatch: "
+                f"expected {entry['sha256']}, got {actual_sha}"
+            )
+    return len(paths)
+
+
 def validate_dev_seed_dataset(
     videos: list[dict[str, Any]],
     annotations: dict[str, Any],
     *,
     repo_root: Path | None = None,
-    verify_files_on_disk: bool = False,
+    verify_files_on_disk: bool | None = None,
     holdout_source_group_ids: set[str] | None = None,
     holdout_video_ids: set[str] | None = None,
 ) -> DevSeedValidationSummary:
@@ -189,7 +224,6 @@ def validate_dev_seed_dataset(
     duration_by_video: dict[str, int] = {}
     benchmarks: dict[str, int] = {}
     m1_5_slice_ids: list[str] = []
-    verified_on_disk = 0
 
     for entry in videos:
         video_id = entry.get("video_id")
@@ -251,23 +285,7 @@ def validate_dev_seed_dataset(
         if entry.get("m1_5_slice") is True:
             m1_5_slice_ids.append(video_id)
 
-        if verify_files_on_disk:
-            if repo_root is None:
-                raise DatasetManifestError("repo_root is required when verify_files_on_disk=True")
-            disk_path = repo_root / str(rel_path)
-            if not disk_path.is_file():
-                raise DatasetManifestError(f"Video {video_id} file missing on disk: {rel_path}")
-            actual_size = disk_path.stat().st_size
-            if actual_size != byte_size:
-                raise DatasetManifestError(
-                    f"Video {video_id} byte_size mismatch: expected {byte_size}, got {actual_size}"
-                )
-            actual_sha = _compute_file_sha256(disk_path)
-            if actual_sha != sha256:
-                raise DatasetManifestError(
-                    f"Video {video_id} sha256 hash mismatch: expected {sha256}, got {actual_sha}"
-                )
-            verified_on_disk += 1
+    verified_on_disk = _verify_dev_seed_files(videos, repo_root, verify_files_on_disk)
 
     raw_annotations_text = json.dumps(annotations, ensure_ascii=False)
     if PRIVATE_PATH_PATTERN.search(raw_annotations_text):
@@ -379,7 +397,12 @@ def _cli(argv: list[str] | None = None) -> int:
         type=Path,
         default=Path("experiments/manifests/benchmark_subset_manifest.json"),
     )
-    parser.add_argument("--verify-disk", action="store_true")
+    parser.add_argument(
+        "--verify-disk",
+        action="store_true",
+        default=None,
+        help="Require all media files even when no declared media directory is present.",
+    )
     args = parser.parse_args(argv)
 
     holdout_groups: set[str] = set()

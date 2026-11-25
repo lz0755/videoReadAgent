@@ -1,0 +1,58 @@
+# Video Understanding Agent — P0 default configuration (v1.1)
+# Project guardrails & runtime policy only; NEVER store API keys or secrets here.
+
+media:
+  max_duration_ms: 600000
+  max_file_bytes: 524288000  # 500 MiB exact
+
+ingest:
+  copy_chunk_bytes: 8388608  # 8 MiB exact
+
+ui:
+  max_upload_bytes: 67108864  # 64 MiB exact
+
+asr:
+  vad_filter: false
+
+analysis:
+  core_window_ms: 20000
+  context_overlap_ms: 2000
+  base_fps: 0.2
+  max_unique_sampled_frames: 192
+  max_submitted_image_parts: 720
+  max_images_per_request: 8
+  max_provider_attempts: 90
+  deadline_seconds: 3600
+
+qa:
+  max_rounds: 5
+  max_tool_calls: 6
+  max_expensive_tool_calls: 2
+  max_submitted_image_parts: 32
+  max_images_per_request: 16
+  max_provider_attempts: 10
+  deadline_seconds: 180
+  max_clip_ms: 8000
+  inspect_fps: 2
+
+provider:
+  name: deepseek
+  model: deepseek-flash
+  api_key_env: DEEPSEEK_API_KEY
+  sdk_max_retries: 0
+  tool_return_mode: observations_text
+
+provider_policy:
+  request_timeout_seconds: 45
+  max_transient_retries: 2
+  max_schema_repairs: 1
+
+prompts:
+  registry_path: prompts/registry.json
+
+billing:
+  price_config_path: config/prices.yaml
+
+privacy:
+  cloud_upload_enabled: false
+  log_sensitive_content: false

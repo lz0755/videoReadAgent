@@ -1,0 +1,10 @@
+# Enforce LF line endings for byte-hashed prompt templates and contract/CI files
+# so Windows checkouts with core.autocrlf=true produce identical SHA-256 digests to CI.
+prompts/** text eol=lf
+*.jinja2 text eol=lf
+prompts/registry.json text eol=lf
+Dockerfile.ci text eol=lf
+.github/** text eol=lf
+*.sql text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf

@@ -1,0 +1,27 @@
+# PR-M1.2 交接
+- 状态：待审核（不自批为已合并）；关联验收：M1-A2、M1-A3
+- 前置交接链接：`docs/handoff/PR-M1.1.md`
+- 基线 commit、Step A commit 与测试 diff hash：基线 `5e3d4db`（未执行 git commit）；Step A 测试文件 SHA-256：
+  - `tests/unit/domain/test_policies.py`: `347A66186FEC45F85FD7A62E97B3B68E7F00A58C85FA3C459867234CBB855F9F`（Step B 全程零改动）
+  - `tests/contract/test_domain_models.py`: Step A 冻结基线 `0170F018B0E219EAEB902F65F0A0FD9D97968DA34CED80B3D1275FF749063ECC`；绿灯后仅移除第 178 行多余 `# type: ignore[call-arg]` 注释以满足 `mypy --strict`，断言零改动，最终 SHA-256 `F3AE4FD511BEF5514C2363C3C1D44DB3E692D692A1157891F88903EF17953ABB`
+- 本次单一行为与允许修改路径：严格领域 Schema、统一 `analysis_id`（禁止 `run_id`）、严格整数毫秒与先有理数比较后向下取整时间换算、错误码与重试分类、严格配置模型与单一预算/重试/出口策略；修改路径：`src/video_agent/domain/errors.py`、`src/video_agent/domain/models.py`、`src/video_agent/domain/config.py`、`src/video_agent/domain/policies.py`、`tests/contract/test_domain_models.py`、`tests/unit/domain/test_policies.py`。
+- 代码真相源链接及合同是否变化：`src/video_agent/domain/models.py`（顶层 `schema_version="1.1"`）、`src/video_agent/domain/errors.py`、`src/video_agent/domain/config.py`、`src/video_agent/domain/policies.py`（首次建立领域合同真相源，纯 Pydantic/标准库，零基础设施导入）。
+- 有效红灯：
+  - 命令：`uv run --no-sync pytest tests/contract/test_domain_models.py tests/unit/domain/test_policies.py -q --disable-socket --allow-unix-socket --tb=line`
+  - 断言与退出码：exit 1（`26 failed in 0.19s`；Step 0 空壳模型未拦截非法类型/状态 + 占位 `NotImplementedError`，零 `ImportError`）
+- 绿灯：
+  - `uv run --no-sync pytest tests/contract/test_domain_models.py tests/unit/domain/test_policies.py tests/architecture -q --disable-socket --allow-unix-socket` → exit 0（`33 passed`）
+  - `uv run --no-sync lint-imports` / `uv run --no-sync ruff check src experiments tests` / `uv run --no-sync mypy src/video_agent experiments tests` → exit 0
+- Fixture Self Check、真实集成与断网验证结果：纯领域契约与策略单测在 `--disable-socket --allow-unix-socket` 下运行；AST 架构门与 `import-linter` 均确认 `domain` 零基础设施/SDK/媒体/DB 导入。
+- 未运行检查及原因：不涉及真实媒体、SQLite 或云端调用（分别由 M1.4、M1.5、M2 覆盖）。
+- 实际模型/HTTP/工具/图片调用数；estimated/confirmed/unknown：0 次模型调用、0 次 HTTP 调用、0 张外发图片；`confirmed`（0.0 USD）。
+- 依赖锁、模型、Prompt bundle、Schema 与数据版本：`uv.lock` 未改动；领域对外 Schema `1.1`。
+- 已知限制、恢复/回滚方式、独立审查结论：跨对象引用真实存在性与资产归属校验由应用层与 SQLite 外键共同执行（不在纯 Pydantic 模型内查库）；回滚可直接移除新增的 4 个 domain 模块及测试；待独立审查。
+- 下一PR需要读取的文件和仍未解决问题：M1.3 读取 `AGENTS.md`、`src/video_agent/domain/models.py`、`src/video_agent/domain/errors.py`、`src/video_agent/domain/config.py`、`docs/handoff/PR-M1.2.md`。
+- 独立审查返工修复（两轮 TDD，状态仍保持 `待审核`）：
+  - Step A 冻结测试哈希（Step B 全程零改动）：
+    - `tests/contract/test_domain_models.py`: `A79BAA897E62753D686DB5AE7E0115548EABCD0EF498DD35934EBA40E3AE7EA0`
+    - `tests/contract/test_runtime_modes.py`: `EAB74FA3B7ED7D00082CA9C694CF6A97F98CAB2973E93C87B2D94CEC730A30D0`
+  - 修复内容：新增严格模型 `PlaybackVerificationRecord`（要求 `position` 覆盖 `start`/`mid`/`end` 且 `source_pts_ms` 严格递增、`observed_offset_ms == proxy_pts_ms - source_pts_ms` 且在 `tolerance_ms` 内），彻底拒绝 `verification_records=[{}, {}, {}]`；`video-agent doctor` 接入 `AppConfig.model_validate`，对 `asr.vad_filter=true` 等非法配置与启动入口给出一致拒绝结论。
+  - 红/绿灯结果：Step A 两条新回归测试均在行为层红灯；Step B 修复后全量门禁与 `143 passed` 全部绿灯。初版绿灯后的 `# type: ignore` 清理说明仍保留供独立审查核验；未伪造事后 Step A commit。
+

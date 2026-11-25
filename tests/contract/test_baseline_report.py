@@ -219,12 +219,229 @@ def test_repo_baseline_report_exists_and_passes_full_contract() -> None:
     assert len(report["request_body_hashes"]["m0_a1_multi_image_order_requests"]) >= 3
 
 
+def _materialize_synthetic_baseline_repo(synth_root: Path) -> Path:
+    """Create a self-contained mini-repo with real FFmpeg synthetic MP4s and PNG frames."""
+    import hashlib
+    import shutil
+    import subprocess
+
+    from PIL import Image
+
+    synth_root.mkdir(parents=True, exist_ok=True)
+    for rel in (
+        "AGENTS.md",
+        "pyproject.toml",
+        "uv.lock",
+        "experiments/config/provider_deepseek.yaml",
+        "experiments/capabilities.json",
+        "tests/fixtures/manifests/f01_f04_manifest.json",
+    ):
+        src = REPO_ROOT / rel
+        dst = synth_root / rel
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dst)
+
+    # Generate one real 1-second synthetic H.264 MP4 via FFmpeg and replicate for 6 D0 entries
+    media_dir = synth_root / "data" / "datasets" / "synth_dev"
+    media_dir.mkdir(parents=True, exist_ok=True)
+    template_mp4 = media_dir / "_template.mp4"
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-y",
+            "-v",
+            "error",
+            "-f",
+            "lavfi",
+            "-i",
+            "testsrc2=size=320x180:rate=10:duration=1",
+            "-c:v",
+            "libx264",
+            "-pix_fmt",
+            "yuv420p",
+            str(template_mp4),
+        ],
+        check=True,
+        capture_output=True,
+    )
+    mp4_bytes = template_mp4.read_bytes()
+    template_mp4.unlink()
+    mp4_sha = hashlib.sha256(mp4_bytes).hexdigest()
+
+    dev_lines: list[str] = []
+    questions: list[dict[str, Any]] = []
+    for idx in range(1, 7):
+        vid_id = f"synth_dev_{idx}"
+        rel_video = f"data/datasets/synth_dev/{vid_id}.mp4"
+        (synth_root / rel_video).write_bytes(mp4_bytes)
+        dev_lines.append(
+            json.dumps(
+                {
+                    "video_id": vid_id,
+                    "benchmark": "mme_videoocr",
+                    "split": "m0_dev",
+                    "source_group_id": f"synth:group_{idx}",
+                    "original_id": f"orig_{idx}",
+                    "relative_path": rel_video,
+                    "byte_size": len(mp4_bytes),
+                    "sha256": mp4_sha,
+                    "duration_ms": 1000,
+                    "video_codec": "h264",
+                    "has_audio": False,
+                    "m1_5_slice": idx <= 3,
+                    "authorization": {
+                        "source_repo_url": "https://example.invalid/synth",
+                        "license_name": "MIT",
+                        "usage_scope": "offline_synthetic_ci_test",
+                        "commercial_use_allowed": False,
+                        "redistribution_allowed": False,
+                        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+                    },
+                    "annotations_path": "eval/annotations/dev_seed/dev_seed_questions.json",
+                }
+            )
+        )
+        for q_idx in range(1, 5):
+            if q_idx == 4:
+                questions.append(
+                    {
+                        "question_id": f"{vid_id}_q{q_idx}",
+                        "video_id": vid_id,
+                        "question_text": f"Absent detail in {vid_id}?",
+                        "category": "unanswerable_absence",
+                        "answerability": "not_answerable",
+                        "reference_answer": None,
+                        "expected_gaps": ["Not shown anywhere in synthetic clip."],
+                        "evidence_refs": [
+                            {
+                                "start_ms": 0,
+                                "end_ms": 1000,
+                                "modality": "absent_verified",
+                                "basis": "Full clip checked.",
+                            }
+                        ],
+                        "verification_basis": "Synthetic absence check.",
+                    }
+                )
+            else:
+                questions.append(
+                    {
+                        "question_id": f"{vid_id}_q{q_idx}",
+                        "video_id": vid_id,
+                        "question_text": f"Visible detail {q_idx} in {vid_id}?",
+                        "category": "small_text_ocr",
+                        "answerability": "answerable",
+                        "reference_answer": f"detail_{q_idx}",
+                        "expected_gaps": [],
+                        "evidence_refs": [
+                            {
+                                "start_ms": 0,
+                                "end_ms": 500,
+                                "modality": "visual",
+                                "basis": "Visible in synthetic frame.",
+                            }
+                        ],
+                        "verification_basis": "Synthetic frame check.",
+                    }
+                )
+
+    dev_manifest = synth_root / "eval/manifests/dev_seed.jsonl"
+    dev_manifest.parent.mkdir(parents=True, exist_ok=True)
+    dev_manifest.write_text("\n".join(dev_lines) + "\n", encoding="utf-8")
+
+    dev_ann = synth_root / "eval/annotations/dev_seed/dev_seed_questions.json"
+    dev_ann.parent.mkdir(parents=True, exist_ok=True)
+    dev_ann.write_text(
+        json.dumps(
+            {
+                "schema_version": "m0.3-dev-seed-annotations-v1",
+                "split": "m0_dev",
+                "questions": questions,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    # Real synthetic PNG frames for M0-A1 ROI & multi-image order stages
+    frame_dir = synth_root / "data/datasets/m0_a1_extracted"
+    frame_dir.mkdir(parents=True, exist_ok=True)
+    gui_png = frame_dir / "gui_0.png"
+    Image.new("RGB", (1920, 1080), color=(32, 48, 64)).save(gui_png, format="PNG")
+    gui_sha = hashlib.sha256(gui_png.read_bytes()).hexdigest()
+
+    order_frames: list[dict[str, Any]] = []
+    for idx, pts_ms in enumerate((100, 400, 700)):
+        fp = frame_dir / f"ord_{idx}.png"
+        Image.new("RGB", (640, 360), color=(40 + idx * 30, 50, 60)).save(fp, format="PNG")
+        order_frames.append(
+            {
+                "frame_id": f"ord_{idx}",
+                "relative_path": f"data/datasets/m0_a1_extracted/ord_{idx}.png",
+                "width": 640,
+                "height": 360,
+                "byte_size": fp.stat().st_size,
+                "sha256": hashlib.sha256(fp.read_bytes()).hexdigest(),
+                "timestamp_kind": "ffprobe_actual_pts",
+                "requested_ms": pts_ms,
+                "actual_pts_ms": pts_ms,
+            }
+        )
+
+    bench_manifest = synth_root / "experiments/manifests/benchmark_subset_manifest.json"
+    bench_manifest.parent.mkdir(parents=True, exist_ok=True)
+    bench_manifest.write_text(
+        json.dumps(
+            {
+                "schema_version": "m0-benchmark-subset-v1",
+                "media_artifacts": [
+                    {
+                        "artifact_id": "holdout_synth_1",
+                        "split": "m6_holdout",
+                        "source_group_id": "synth:holdout_1",
+                    }
+                ],
+                "m0_a1_extracted_samples": [
+                    {
+                        "sample_id": "synth_roi_1",
+                        "benchmark": "videogui",
+                        "parent_artifact_id": "synth_dev_1",
+                        "probe_purpose": "software_tutorial_high_vs_grid_roi",
+                        "recommended_roi_region_id": "r2c2",
+                        "frames": [
+                            {
+                                "frame_id": "gui_0",
+                                "relative_path": "data/datasets/m0_a1_extracted/gui_0.png",
+                                "width": 1920,
+                                "height": 1080,
+                                "byte_size": gui_png.stat().st_size,
+                                "sha256": gui_sha,
+                                "timestamp_kind": "static_gui_keyframe",
+                            }
+                        ],
+                    },
+                    {
+                        "sample_id": "synth_order_1",
+                        "benchmark": "video_mme_v2",
+                        "parent_artifact_id": "synth_dev_2",
+                        "probe_purpose": "vision_multi_image_order",
+                        "recommended_roi_region_id": "r2c2",
+                        "frames": order_frames,
+                    },
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    return synth_root
+
+
 def test_run_m0_baseline_produces_correlated_single_run_report(tmp_path: Path) -> None:
     out_file = tmp_path / "baseline_report.json"
     fixtures_dir = tmp_path / "f01_f04"
+    synth_repo = _materialize_synthetic_baseline_repo(tmp_path / "synth_repo")
 
     report = run_m0_baseline(
-        repo_root=REPO_ROOT,
+        repo_root=synth_repo,
         output_path=out_file,
         fixtures_dir=fixtures_dir,
     )

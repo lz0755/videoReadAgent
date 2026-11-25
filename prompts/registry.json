@@ -1,0 +1,35 @@
+{
+  "schema_version": "1.1",
+  "templates": [
+    {
+      "name": "vision_observe",
+      "relative_path": "vision/observe.jinja2",
+      "label": "vision_v1",
+      "template_sha256": "b8e6365335ade91ae6256cc505344368203cc9cd387fe078c8a0d99ba7413d81"
+    },
+    {
+      "name": "summary_summarize",
+      "relative_path": "summary/summarize.jinja2",
+      "label": "summary_v1",
+      "template_sha256": "0e4245155fcbdafb1f85052f0085d608280ba60cfafc73fd57819033a42d84cc"
+    },
+    {
+      "name": "planner_decide",
+      "relative_path": "planner/decide.jinja2",
+      "label": "planner_v1",
+      "template_sha256": "3d6251e48a4247c8aee88e0899af6020c0010e8c0baf8c2d966399fd955823d2"
+    },
+    {
+      "name": "answer_compose",
+      "relative_path": "answer/compose.jinja2",
+      "label": "answer_v1",
+      "template_sha256": "3d2e69f09c8d05483c8a09cd8f49ab1a80f5a3648898fd15b323bca30c7fd7a7"
+    },
+    {
+      "name": "repair_schema",
+      "relative_path": "repair/schema.jinja2",
+      "label": "repair_v1",
+      "template_sha256": "212518197c3eb1a284e92e3e00d238dfb8dd5351a1db9dfb180f4b8cb37b4ee5"
+    }
+  ]
+}

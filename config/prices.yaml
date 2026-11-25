@@ -1,0 +1,23 @@
+# Reference price configuration with currency, effective date, and source metadata.
+# Not a provider billing guarantee; unknown external costs are never treated as zero.
+
+currency: USD
+effective_date: "2026-11-25"
+source: "https://api-docs.deepseek.com/quick_start/pricing.md"
+
+models:
+  deepseek-flash:
+    input_per_1m_tokens_usd: 0.15
+    input_cache_hit_per_1m_tokens_usd: 0.003
+    output_per_1m_tokens_usd: 0.60
+    estimated_tokens_per_image: 1024
+  fake-vision:
+    input_per_1m_tokens_usd: 0.0
+    input_cache_hit_per_1m_tokens_usd: 0.0
+    output_per_1m_tokens_usd: 0.0
+    estimated_tokens_per_image: 0
+  fake-planner:
+    input_per_1m_tokens_usd: 0.0
+    input_cache_hit_per_1m_tokens_usd: 0.0
+    output_per_1m_tokens_usd: 0.0
+    estimated_tokens_per_image: 0

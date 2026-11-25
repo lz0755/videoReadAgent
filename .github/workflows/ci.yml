@@ -1,0 +1,54 @@
+name: Offline Quality & Isolation Gates
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  static-and-offline-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: Install system FFmpeg
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg curl
+      - name: Prepare locked dependencies (online prep stage)
+        run: uv sync --frozen
+      - name: Ruff lint
+        run: uv run --no-sync ruff check src experiments tests
+      - name: Ruff format check
+        run: uv run --no-sync ruff format --check src experiments tests
+      - name: Mypy strict check
+        run: uv run --no-sync mypy src/video_agent experiments tests
+      - name: Import-linter architecture gate
+        run: uv run --no-sync lint-imports
+      - name: Offline pytest (Python socket blocked)
+        env:
+          HF_HUB_OFFLINE: "1"
+          TRANSFORMERS_OFFLINE: "1"
+        run: >
+          uv run --no-sync pytest -q
+          -m "not provider_live and not model_local"
+          --disable-socket --allow-unix-socket
+
+  os-network-isolated-acceptance:
+    runs-on: ubuntu-latest
+    needs: static-and-offline-tests
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build immutable CI image (prep stage)
+        run: docker build -f Dockerfile.ci -t video-agent-ci:v1.1 .
+      - name: Run OS network-none canary and offline test suite
+        run: |
+          docker run --rm --network none --workdir /app \
+            -e HF_HUB_OFFLINE=1 \
+            -e TRANSFORMERS_OFFLINE=1 \
+            video-agent-ci:v1.1 \
+            sh -ec '
+              .venv/bin/python tests/canary/network_denied.py
+              .venv/bin/python -m video_agent.cli doctor --json
+              .venv/bin/python -m pytest -q \
+                -m "not provider_live and not model_local" \
+                --disable-socket --allow-unix-socket
+            '

@@ -1,0 +1,24 @@
+# PR-M1.6 交接
+- 状态：待审核（不自批为已合并）；关联验收：M1-A2
+- 前置交接链接：`docs/handoff/PR-M1.1.md`、`docs/handoff/PR-M1.2.md`、`docs/handoff/PR-M1.4.md`
+- 基线 commit、Step A commit 与测试 diff hash：基线 `5e3d4db`（未执行 git commit）；Step A 冻结测试文件 SHA-256（Step B 全程零改动）：
+  - `tests/unit/test_prompt_registry.py`: `E816D5E82A8C523529AAE1766ED6254D39197E6CED8D10ACE968C8362A99535C`
+- 本次单一行为与允许修改路径：建立 5 份严格 UTF-8/LF/无 BOM 生产 Prompt 模板、`prompts/registry.json` 与 `PromptRegistry`（精确字节 SHA-256 校验、严格 Jinja2 渲染、规范 JSON bundle 哈希与独立 `request_input_digest`）；修改路径：`prompts/vision/observe.jinja2`、`prompts/summary/summarize.jinja2`、`prompts/planner/decide.jinja2`、`prompts/answer/compose.jinja2`、`prompts/repair/schema.jinja2`、`prompts/registry.json`、`src/video_agent/application/prompt_registry.py`、`tests/unit/test_prompt_registry.py`。
+- 代码真相源链接及合同是否变化：`prompts/registry.json`、5 份 `prompts/**/*.jinja2` 与 `src/video_agent/application/prompt_registry.py`（首次建立 Prompt 身份与渲染真相源；编号按计划书/指南跳过 M1.5，保留给独立垂直切片里程碑）。
+- 有效红灯：
+  - 命令：`uv run --no-sync pytest tests/unit/test_prompt_registry.py -q --disable-socket --allow-unix-socket --tb=line`
+  - 断言与退出码：exit 1（`3 failed in 0.06s`；Step 0 `NotImplementedError` 与缺失 `prompts/`，零 `ImportError`）
+- 绿灯：
+  - `uv run --no-sync pytest tests/unit/test_prompt_registry.py tests/architecture -q --disable-socket --allow-unix-socket` → exit 0（`10 passed`）
+  - `uv run --no-sync lint-imports` / `uv run --no-sync ruff check src experiments tests` / `uv run --no-sync mypy src/video_agent experiments tests` → exit 0
+- Fixture Self Check、真实集成与断网验证结果：已验证任意 1 字节模板改动（含尾部空格、保持相同可读 `label`）、`tool_schema` 或 `output_schema` 变更必然改变 `bundle_hash`；CRLF、UTF-8 BOM、未登记篡改和缺失模板变量均触发 `PROMPT_INTEGRITY_ERROR`；视频/问题运行变量只改变 `request_input_digest`，不污染模板或 bundle 身份。
+- 未运行检查及原因：真实云端 Prompt 语义效果评测归属 M1.5/M6，不在 M1.6 范围。
+- 实际模型/HTTP/工具/图片调用数；estimated/confirmed/unknown：0 次模型调用、0 次 HTTP 调用、0 张外发图片；`confirmed`（0.0 USD）。
+- 依赖锁、模型、Prompt bundle、Schema 与数据版本：`uv.lock` 未改动；`jinja2:3.1.6`；`prompts/registry.json` Schema `1.1`（5 份模板均为 v1 初始基线）。
+- 已知限制、恢复/回滚方式、独立审查结论：在 Windows 克隆或编辑模板时须保持 LF 换行（否则注册表加载即拒绝，防止跨平台哈希漂移）；回滚可移除 `prompts/` 与 `prompt_registry.py`；待独立审查。
+- 下一PR需要读取的文件和仍未解决问题：M1.7 读取 `AGENTS.md`、`src/video_agent/domain/policies.py`、`src/video_agent/domain/ports.py`、`docs/handoff/PR-M1.6.md`。
+- 独立审查返工修复（两轮 TDD，状态仍保持 `待审核`）：
+  - Step A 冻结测试哈希（Step B 全程零改动）：`tests/unit/test_prompt_registry.py`: `B7E63DEE93A767DBEC450CCB53D069795E8C495E3AB960F84E2FEB71341BA56E`
+  - 修复内容：新增仓库级 `.gitattributes` 强制 `prompts/**`、`*.jinja2`、`prompts/registry.json` 等文件以 LF 检出；新增真实 `git init` + `git clone -c core.autocrlf=true` 回归测试，证明在 Windows `core.autocrlf=true` 检出后 5 个模板仍保持纯 LF 字节且 `PromptRegistry` 校验零误差。
+  - 红/绿灯结果：Step A 回归测试行为红灯（缺失 `.gitattributes`）；Step B 修复后全量门禁与 `143 passed` 全部绿灯；未伪造事后 Step A commit。
+

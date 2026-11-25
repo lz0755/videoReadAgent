@@ -1,0 +1,1 @@
+"""SQLite sequential schema migrations."""
