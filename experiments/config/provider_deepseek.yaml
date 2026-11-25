@@ -1,0 +1,65 @@
+# DeepSeek Provider contract & model configuration (model IDs are config, not hardcoded).
+# Official contract snapshot date: 2026-11-25.
+# Documented facts here start as documented_supported and NEVER become runtime_verified
+# until executed and verified against a real account under M0.0 authorization and budget.
+
+provider: deepseek
+api_family: openai_chat_completions
+base_url: https://api.deepseek.com
+api_key_env: DEEPSEEK_API_KEY
+
+# Configurable model IDs (verified against GET /models during live run; alias is not an immutable weight lock).
+model_id: deepseek-flash
+documented_model_version: DeepSeek-V4.1-Flash-1017
+text_only_reference_model_id: deepseek-v4-pro
+documented_text_only_model_version: DeepSeek-V4-Pro-0813
+
+official_contract:
+  snapshot_date: "2026-11-25"
+  sources:
+    vision: "https://api-docs.deepseek.com/guides/vision.md"
+    tool_calls: "https://api-docs.deepseek.com/guides/tool_calls/"
+    files_api: "https://api-docs.deepseek.com/guides/files_api.md"
+    json_mode: "https://api-docs.deepseek.com/guides/json_mode.md"
+    pricing: "https://api-docs.deepseek.com/quick_start/pricing.md"
+    list_models: "https://api-docs.deepseek.com/api/list-models/"
+    error_codes: "https://api-docs.deepseek.com/quick_start/error_codes.md"
+
+documented_limits:
+  supported_image_formats: ["JPEG", "PNG", "GIF", "WebP"]
+  max_request_body_bytes: 50331648  # 48 MiB serialized JSON body incl. base64
+  max_single_inline_image_bytes: 33554432  # 32 MiB
+  max_single_file_id_image_bytes: 67108864  # 64 MiB
+  max_images_per_request: 600
+  max_total_image_bytes_inline: 67108864  # 64 MiB
+  max_total_image_bytes_with_files: 209715200  # 200 MiB
+  max_image_side_px_under_15_images: 8192
+  image_count_dimension_threshold: 15
+  max_image_side_px_at_or_above_15_images: 4096
+  detail_values: ["low", "high", "original", "auto"]
+  low_detail_downscale_px: 512
+  internal_resize_approx_pixels_side: 1300
+  internal_max_tokens_per_image: 1024
+  files_api_min_ttl_seconds: 3600
+  files_api_max_ttl_seconds: 2592000
+
+project_p0_limits:
+  # Project-level P0 caps are separate from provider caps.
+  index_max_images_per_request: 8
+  qa_max_images_per_request: 16
+  files_api_used_in_p0_production: false
+  default_tool_return_mode: text_observation_json
+
+pricing_reference:
+  # Reference metadata from official pricing doc on 2026-11-25; not a billing guarantee.
+  currency: USD
+  effective_snapshot_date: "2026-11-25"
+  source: "https://api-docs.deepseek.com/quick_start/pricing.md"
+  deepseek_flash_per_1m_tokens:
+    input_cache_hit_off_peak: 0.003
+    input_cache_hit_peak: 0.006
+    input_cache_miss_off_peak: 0.15
+    input_cache_miss_peak: 0.30
+    output_off_peak: 0.60
+    output_peak: 1.20
+  note: "Reusing file_id avoids re-upload bandwidth only; it does NOT make inference image tokens free."

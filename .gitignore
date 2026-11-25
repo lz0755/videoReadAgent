@@ -225,3 +225,9 @@ __marimo__/
 # IDE
 .idea/
 .vscode/
+
+# doc
+plans/
+
+# Local authorized benchmark datasets, raw videos, extracted frames & holdout answers (never commit)
+data/

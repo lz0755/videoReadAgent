@@ -1,0 +1,477 @@
+{
+  "schema_version": "m0.1-capability-matrix-v1",
+  "generated_at_utc": "2026-11-25T10:50:18.637789+00:00",
+  "run_id": "m0.1-offline-20261125T105017Z",
+  "execution_mode": "offline",
+  "environment": {
+    "python_version": "3.14.6",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "openai_sdk_version": "3.59.0",
+    "httpx_version": "0.28.1"
+  },
+  "provider": {
+    "name": "deepseek",
+    "api_family": "openai_chat_completions",
+    "base_url": "https://api.deepseek.com",
+    "configured_model_id": "deepseek-flash",
+    "documented_model_version": "DeepSeek-V4.1-Flash-1017",
+    "official_contract_snapshot_date": "2026-11-25",
+    "official_contract_sources": {
+      "vision": "https://api-docs.deepseek.com/guides/vision.md",
+      "tool_calls": "https://api-docs.deepseek.com/guides/tool_calls/",
+      "files_api": "https://api-docs.deepseek.com/guides/files_api.md",
+      "json_mode": "https://api-docs.deepseek.com/guides/json_mode.md",
+      "pricing": "https://api-docs.deepseek.com/quick_start/pricing.md",
+      "list_models": "https://api-docs.deepseek.com/api/list-models/",
+      "error_codes": "https://api-docs.deepseek.com/quick_start/error_codes.md"
+    },
+    "model_alias_is_immutable_weight_lock": false
+  },
+  "limits_summary": {
+    "provider_documented": {
+      "max_request_body_bytes": 50331648,
+      "max_single_inline_image_bytes": 33554432,
+      "max_single_file_id_image_bytes": 67108864,
+      "max_images_per_request": 600,
+      "max_image_side_px_under_15_images": 8192,
+      "image_count_dimension_threshold": 15,
+      "max_image_side_px_at_or_above_15_images": 4096,
+      "internal_resize_approx_pixels_side": 1300,
+      "internal_max_tokens_per_image": 1024
+    },
+    "project_p0": {
+      "index_max_images_per_request": 8,
+      "qa_max_images_per_request": 16,
+      "files_api_used_in_p0_production": false,
+      "default_tool_return_mode": "text_observation_json"
+    }
+  },
+  "capabilities": [
+    {
+      "capability_id": "models_discovery",
+      "description": "GET /models lists account-available models and machine-readable modalities",
+      "status": "documented_supported",
+      "documented_status": "documented_supported",
+      "doc_source": "https://api-docs.deepseek.com/api/list-models/",
+      "live_executed": false,
+      "verification_passed": null,
+      "runtime_evidence_id": null,
+      "failure_count": 0,
+      "last_error": null,
+      "notes": "Configured model_id='deepseek-flash' (documented version DeepSeek-V4.1-Flash-1017); alias is not an immutable weight lock.",
+      "details": {}
+    },
+    {
+      "capability_id": "text_chat_completion",
+      "description": "Basic text completion via OpenAI-compatible /chat/completions",
+      "status": "documented_supported",
+      "documented_status": "documented_supported",
+      "doc_source": "https://api-docs.deepseek.com/quick_start/pricing.md",
+      "live_executed": false,
+      "verification_passed": null,
+      "runtime_evidence_id": null,
+      "failure_count": 0,
+      "last_error": null,
+      "notes": "",
+      "details": {}
+    },
+    {
+      "capability_id": "vision_multi_image_order",
+      "description": "Ordered multi-image base64 data URLs in user content array",
+      "status": "documented_supported",
+      "documented_status": "documented_supported",
+      "doc_source": "https://api-docs.deepseek.com/guides/vision.md",
+      "live_executed": false,
+      "verification_passed": null,
+      "runtime_evidence_id": null,
+      "failure_count": 0,
+      "last_error": null,
+      "notes": "Supported formats: JPEG, PNG, GIF, WebP (detected from file content).",
+      "details": {}
+    },
+    {
+      "capability_id": "vision_detail_levels",
+      "description": "image_url.detail parameter (low/high/original/auto)",
+      "status": "documented_supported",
+      "documented_status": "documented_supported",
+      "doc_source": "https://api-docs.deepseek.com/guides/vision.md",
+      "live_executed": false,
+      "verification_passed": null,
+      "runtime_evidence_id": null,
+      "failure_count": 0,
+      "last_error": null,
+      "notes": "low downscales to 512x512; high/original/auto avoid 512px pre-scale but images are still internally resized to ~1300x1300 (<=1024 tokens/image). high does NOT guarantee small text legibility.",
+      "details": {}
+    },
+    {
+      "capability_id": "structured_candidate_json",
+      "description": "JSON Output via response_format={'type':'json_object'}",
+      "status": "documented_supported",
+      "documented_status": "documented_supported",
+      "doc_source": "https://api-docs.deepseek.com/guides/json_mode.md",
+      "live_executed": false,
+      "verification_passed": null,
+      "runtime_evidence_id": null,
+      "failure_count": 0,
+      "last_error": null,
+      "notes": "Requires word 'json' in prompt; non-JSON model output may be replaced with U+0020 spaces even when finish_reason='stop' (must detect whitespace-only).",
+      "details": {}
+    },
+    {
+      "capability_id": "tool_calls_text_observation",
+      "description": "Function tool calling with tool_call_id and text JSON Observation return",
+      "status": "documented_supported",
+      "documented_status": "documented_supported",
+      "doc_source": "https://api-docs.deepseek.com/guides/tool_calls/",
+      "live_executed": false,
+      "verification_passed": null,
+      "runtime_evidence_id": null,
+      "failure_count": 0,
+      "last_error": null,
+      "notes": "Default P0 architecture returns structured text Observation + evidence_id.",
+      "details": {}
+    },
+    {
+      "capability_id": "tool_calls_image_roundtrip",
+      "description": "Returning image_url content blocks inside role='tool' message",
+      "status": "documented_supported",
+      "documented_status": "documented_supported",
+      "doc_source": "https://api-docs.deepseek.com/guides/vision.md",
+      "live_executed": false,
+      "verification_passed": null,
+      "runtime_evidence_id": null,
+      "failure_count": 0,
+      "last_error": null,
+      "notes": "Endpoint docs allow images in tool messages, while installed OpenAI SDK (3.59.0) static typing restricts ChatCompletionToolMessageParam.content to text parts. Offline wire serialization verified via MockTransport; live endpoint untested. Not P0 default.",
+      "details": {
+        "sdk_name": "openai",
+        "sdk_version": "3.59.0",
+        "endpoint_documented_status": "documented_supported",
+        "sdk_static_type_annotation_for_tool_content": "ForwardRef('Required[Union[str, Iterable[ChatCompletionContentPartTextParam]]]', module='openai.types.chat.chat_completion_tool_message_param')",
+        "sdk_static_type_supports_image_part": false,
+        "sdk_offline_wire_serialization_verified": true,
+        "wire_preserves_tool_call_id": true,
+        "wire_preserves_image_url_part": true,
+        "sdk_serialization_error": null,
+        "endpoint_runtime_status": "documented_supported",
+        "p0_default_tool_return_mode": "text_observation_json",
+        "note": "Official DeepSeek Vision docs document image support in role='tool' messages, but installed OpenAI SDK static typing (ChatCompletionToolMessageParam) only types text content parts (requires untyped dict/cast to serialize image_url). Live endpoint round-trip remains unverified until --live runs; P0 defaults to text Observation JSON."
+      }
+    },
+    {
+      "capability_id": "usage_and_error_reporting",
+      "description": "Token usage accounting and HTTP 400/401/402/408/413/422/429/5xx errors",
+      "status": "documented_supported",
+      "documented_status": "documented_supported",
+      "doc_source": "https://api-docs.deepseek.com/quick_start/error_codes.md",
+      "live_executed": false,
+      "verification_passed": null,
+      "runtime_evidence_id": null,
+      "failure_count": 0,
+      "last_error": null,
+      "notes": "",
+      "details": {}
+    },
+    {
+      "capability_id": "software_tutorial_high_vs_grid_roi",
+      "description": "Small-text quality comparison: original high vs 960px + 3x3 numbered ROI",
+      "status": "not_tested",
+      "documented_status": "not_tested",
+      "doc_source": "https://api-docs.deepseek.com/guides/vision.md",
+      "live_executed": false,
+      "verification_passed": null,
+      "runtime_evidence_id": null,
+      "failure_count": 0,
+      "last_error": null,
+      "notes": "Offline payload serialization & ungridded ROI crop geometry checked on synthetic 1080p UI frame; real authorized software_tutorial live quality remains not_tested.",
+      "details": {}
+    },
+    {
+      "capability_id": "image_count_14_15_16_and_4096px_boundary",
+      "description": "14/15/16 image count x 4096/4097px side limit & 48 MiB body size check",
+      "status": "documented_supported",
+      "documented_status": "documented_supported",
+      "doc_source": "https://api-docs.deepseek.com/guides/vision.md",
+      "live_executed": false,
+      "verification_passed": null,
+      "runtime_evidence_id": null,
+      "failure_count": 0,
+      "last_error": null,
+      "notes": "Offline contract verifier passed on synthetic 4096/4097px images; ordinary 1080p cannot prove the 4096px limit. Live boundary probe not yet executed.",
+      "details": {
+        "offline_contract_summary": {
+          "execution_mode": "offline_contract_check",
+          "live_executed": false,
+          "proves_15_image_4096_contract_offline": true,
+          "ordinary_1080p_proves_4096_limit": false,
+          "project_vs_provider_note": "Project P0 caps (8 index / 16 QA images per request) are separate from provider caps (600 images max, 4096px side limit at >=15 images, 48 MiB serialized body).",
+          "cases": [
+            {
+              "case_id": "14_images_4096px",
+              "image_count": 14,
+              "max_side_px": 4096,
+              "effective_max_side_px": 8192,
+              "actual_serialized_body_bytes": 42571,
+              "serialized_request_body_sha256": "9b1d83217621b9c6fa1c47c35e12765118cf31c904c7a6ceec11834bcd3fa14f",
+              "evaluated_body_bytes": 42571,
+              "max_request_body_bytes": 50331648,
+              "allowed_by_documented_contract": true,
+              "violations": [],
+              "exercises_15_img_4096_boundary": false,
+              "triggers_15_img_4096_rejection": false,
+              "ordinary_1080p_note": null
+            },
+            {
+              "case_id": "14_images_4097px",
+              "image_count": 14,
+              "max_side_px": 4097,
+              "effective_max_side_px": 8192,
+              "actual_serialized_body_bytes": 43355,
+              "serialized_request_body_sha256": "27bf96f4673a3d28c6e0b5c1141e32b871c141aa92b06f24a2e29c46de4ca9da",
+              "evaluated_body_bytes": 43355,
+              "max_request_body_bytes": 50331648,
+              "allowed_by_documented_contract": true,
+              "violations": [],
+              "exercises_15_img_4096_boundary": false,
+              "triggers_15_img_4096_rejection": false,
+              "ordinary_1080p_note": null
+            },
+            {
+              "case_id": "15_images_4096px",
+              "image_count": 15,
+              "max_side_px": 4096,
+              "effective_max_side_px": 4096,
+              "actual_serialized_body_bytes": 45597,
+              "serialized_request_body_sha256": "8d5621543a8718f8a83b71c5f7b6ee2bcfbe1b34ae97c6ea7d45f7f8e453e66f",
+              "evaluated_body_bytes": 45597,
+              "max_request_body_bytes": 50331648,
+              "allowed_by_documented_contract": true,
+              "violations": [],
+              "exercises_15_img_4096_boundary": true,
+              "triggers_15_img_4096_rejection": false,
+              "ordinary_1080p_note": null
+            },
+            {
+              "case_id": "15_images_4097px",
+              "image_count": 15,
+              "max_side_px": 4097,
+              "effective_max_side_px": 4096,
+              "actual_serialized_body_bytes": 46437,
+              "serialized_request_body_sha256": "007bc5eab0c7d49d378ca1ec668f68572afcbd4d5c056ba00b7404df469901c7",
+              "evaluated_body_bytes": 46437,
+              "max_request_body_bytes": 50331648,
+              "allowed_by_documented_contract": false,
+              "violations": [
+                "IMAGE_DIMENSION_LIMIT_EXCEEDED"
+              ],
+              "exercises_15_img_4096_boundary": true,
+              "triggers_15_img_4096_rejection": true,
+              "ordinary_1080p_note": null
+            },
+            {
+              "case_id": "16_images_4096px",
+              "image_count": 16,
+              "max_side_px": 4096,
+              "effective_max_side_px": 4096,
+              "actual_serialized_body_bytes": 48623,
+              "serialized_request_body_sha256": "4b723e3985ed03932d821dd8ca5a75a72183693d5e01101bc721644c28283fa2",
+              "evaluated_body_bytes": 48623,
+              "max_request_body_bytes": 50331648,
+              "allowed_by_documented_contract": true,
+              "violations": [],
+              "exercises_15_img_4096_boundary": true,
+              "triggers_15_img_4096_rejection": false,
+              "ordinary_1080p_note": null
+            },
+            {
+              "case_id": "16_images_4097px",
+              "image_count": 16,
+              "max_side_px": 4097,
+              "effective_max_side_px": 4096,
+              "actual_serialized_body_bytes": 49519,
+              "serialized_request_body_sha256": "e7affeb467763942cdb164cd31aa730c9c525ca59a6383436ecc71019e3c0db1",
+              "evaluated_body_bytes": 49519,
+              "max_request_body_bytes": 50331648,
+              "allowed_by_documented_contract": false,
+              "violations": [
+                "IMAGE_DIMENSION_LIMIT_EXCEEDED"
+              ],
+              "exercises_15_img_4096_boundary": true,
+              "triggers_15_img_4096_rejection": true,
+              "ordinary_1080p_note": null
+            },
+            {
+              "case_id": "15_images_ordinary_1080p_non_proof",
+              "image_count": 15,
+              "max_side_px": 1920,
+              "effective_max_side_px": 4096,
+              "actual_serialized_body_bytes": 191715,
+              "serialized_request_body_sha256": "d952b175de01341378b0d6b3a644e02620aa1019747d2f2b7f2771e317169b1d",
+              "evaluated_body_bytes": 191715,
+              "max_request_body_bytes": 50331648,
+              "allowed_by_documented_contract": true,
+              "violations": [],
+              "exercises_15_img_4096_boundary": false,
+              "triggers_15_img_4096_rejection": false,
+              "ordinary_1080p_note": "ordinary_1080p_cannot_prove_4096px_limit: max_side_px<=1920 does not cross 4096px"
+            },
+            {
+              "case_id": "body_over_48mib_offline_guard",
+              "image_count": 1,
+              "max_side_px": 1920,
+              "effective_max_side_px": 8192,
+              "actual_serialized_body_bytes": 12985,
+              "serialized_request_body_sha256": "7b20ea8aa5655e49cf1dd477f9cb14ee6140f005b83d5647657b06fc90219bec",
+              "evaluated_body_bytes": 50331649,
+              "max_request_body_bytes": 50331648,
+              "allowed_by_documented_contract": false,
+              "violations": [
+                "REQUEST_BODY_LIMIT_EXCEEDED"
+              ],
+              "exercises_15_img_4096_boundary": false,
+              "triggers_15_img_4096_rejection": false,
+              "ordinary_1080p_note": "ordinary_1080p_cannot_prove_4096px_limit: max_side_px<=1920 does not cross 4096px"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "capability_id": "files_api_upload_reuse_expiry_delete",
+      "description": "Files API upload (short TTL), file_id reuse, retrieve, and delete verify",
+      "status": "documented_supported",
+      "documented_status": "documented_supported",
+      "doc_source": "https://api-docs.deepseek.com/guides/files_api.md",
+      "live_executed": false,
+      "verification_passed": null,
+      "runtime_evidence_id": null,
+      "failure_count": 0,
+      "last_error": null,
+      "notes": "Explicitly NOT used in P0 production path. Requires separate upload authorization and explicit TTL (3600..2592000s). file_id reuse avoids re-upload only; inference image tokens are still billed.",
+      "details": {
+        "p0_production_allowed": false,
+        "file_id_reuse_makes_inference_free": false
+      }
+    },
+    {
+      "capability_id": "assistant_message_images",
+      "description": "Sending image blocks inside role='assistant' messages",
+      "status": "unsupported",
+      "documented_status": "unsupported",
+      "doc_source": "https://api-docs.deepseek.com/guides/vision.md",
+      "live_executed": false,
+      "verification_passed": null,
+      "runtime_evidence_id": null,
+      "failure_count": 0,
+      "last_error": null,
+      "notes": "Official Vision docs explicitly state images in assistant messages return 400.",
+      "details": {}
+    },
+    {
+      "capability_id": "text_only_model_vision",
+      "description": "Vision input on deepseek-v4-pro",
+      "status": "unsupported",
+      "documented_status": "unsupported",
+      "doc_source": "https://api-docs.deepseek.com/quick_start/pricing.md",
+      "live_executed": false,
+      "verification_passed": null,
+      "runtime_evidence_id": null,
+      "failure_count": 0,
+      "last_error": null,
+      "notes": "Official pricing/models docs state deepseek-v4-pro does not support Vision.",
+      "details": {}
+    },
+    {
+      "capability_id": "chat_completions_mid_conversation_tool_insertion",
+      "description": "Inserting synthetic tool calls mid-conversation in Chat Completions",
+      "status": "unsupported",
+      "documented_status": "unsupported",
+      "doc_source": "https://api-docs.deepseek.com/guides/tool_calls/",
+      "live_executed": false,
+      "verification_passed": null,
+      "runtime_evidence_id": null,
+      "failure_count": 0,
+      "last_error": null,
+      "notes": "Official Tool Calls docs state Chat Completions does not support inserting tool calls mid-conversation (Anthropic/Responses API only).",
+      "details": {}
+    }
+  ],
+  "software_tutorial_comparison_baseline": {
+    "source_kind": "authorized_real_frame",
+    "high_guarantees_small_text_legibility": false,
+    "vendor_internal_resize_note": "Official Vision docs state detail='high' equals 'original' (no 512px low pre-scale), but before inference every image is still resized to ~1300x1300 (capped at 1024 tokens/image). Therefore detail='high' does NOT guarantee small text is always readable.",
+    "strategy_a_original_high": {
+      "name": "original_frame_detail_high",
+      "detail": "high",
+      "image_dimensions": [
+        [
+          2560,
+          1600
+        ]
+      ],
+      "image_parts": 1,
+      "raw_image_bytes": 273901,
+      "serialized_request_body_bytes": 365687,
+      "serialized_request_body_sha256": "714fcb1214e8864fb8e060af7debcab8d1f3ef2b41fe219e304719cf89a5b075",
+      "within_48mib_limit": true,
+      "latency_ms": null,
+      "usage": null,
+      "quality_status": "not_tested_live"
+    },
+    "strategy_b_960_plus_grid_roi": {
+      "name": "overview_960_plus_numbered_grid_roi",
+      "roi_region_id": "r2c1",
+      "roi_cropped_from_ungridded_original": true,
+      "roi_crop_bbox_px": {
+        "x0": 0,
+        "y0": 480,
+        "x1": 939,
+        "y1": 1120
+      },
+      "grid_preview_is_fact_evidence": false,
+      "image_dimensions": [
+        [
+          960,
+          600
+        ],
+        [
+          960,
+          600
+        ],
+        [
+          939,
+          640
+        ]
+      ],
+      "image_parts": 3,
+      "raw_image_bytes": 223895,
+      "serialized_request_body_bytes": 299229,
+      "serialized_request_body_sha256": "bc33433f94d67676cb98ad62d54f1a7d4fde89b0ca21a06f1717f1354f2758e8",
+      "within_48mib_limit": true,
+      "latency_ms": null,
+      "usage": null,
+      "quality_status": "not_tested_live"
+    },
+    "sample_id": "m0_a1_vg_sd6_gui",
+    "benchmark": "videogui",
+    "frame_relative_path": "data/datasets/m0_a1_extracted/m0_a1_vg_sd6_gui.png",
+    "frame_sha256": "2ab3c81ead2b5c926b6c3fead30ebcfe2b9cd80dc3a97e88808e90b68c88b175",
+    "all_extracted_m0_a1_summary": {
+      "roi_sample_count": 8,
+      "multi_image_sequence_count": 3,
+      "verified_real_frame_count": 26
+    }
+  },
+  "budget_ledger": {
+    "model_attempts": 0,
+    "provider_http_attempts": 0,
+    "transferred_bytes": 0,
+    "sent_image_parts": 0,
+    "cost_status": "confirmed",
+    "note": "Offline verification only; zero outbound cloud calls were made."
+  },
+  "decision": {
+    "verdict": "pause_pending_live_verification",
+    "rationale": "Official DeepSeek contract (2026-11-25), offline 14/15/16 x 4096/4097px & 48 MiB boundary checks, OpenAI SDK tool-image typing/serialization checks, and offline ROI & multi-image serialization checks on 26 real extracted M0-A1 frames (VideoGUI, MME-VideoOCR, Video-MME v2; <=20 GB subset) are complete. However, no live credentials or cloud egress consent were executed in this run; all live-dependent capabilities remain documented_supported or not_tested (zero runtime_verified). Supply explicit M0.0 live budget + credentials to execute live M0-A1 probes on the extracted frames before entering M1.5 cloud slice."
+  }
+}

@@ -1,0 +1,844 @@
+{
+  "run_id": "m0.1-offline-20261125T105017Z",
+  "execution_mode": "offline",
+  "generated_at_utc": "2026-11-25T10:50:18.637789+00:00",
+  "configured_model_id": "deepseek-flash",
+  "sdk_tool_image_inspection": {
+    "sdk_name": "openai",
+    "sdk_version": "3.59.0",
+    "endpoint_documented_status": "documented_supported",
+    "sdk_static_type_annotation_for_tool_content": "ForwardRef('Required[Union[str, Iterable[ChatCompletionContentPartTextParam]]]', module='openai.types.chat.chat_completion_tool_message_param')",
+    "sdk_static_type_supports_image_part": false,
+    "sdk_offline_wire_serialization_verified": true,
+    "wire_preserves_tool_call_id": true,
+    "wire_preserves_image_url_part": true,
+    "sdk_serialization_error": null,
+    "endpoint_runtime_status": "documented_supported",
+    "p0_default_tool_return_mode": "text_observation_json",
+    "note": "Official DeepSeek Vision docs document image support in role='tool' messages, but installed OpenAI SDK static typing (ChatCompletionToolMessageParam) only types text content parts (requires untyped dict/cast to serialize image_url). Live endpoint round-trip remains unverified until --live runs; P0 defaults to text Observation JSON."
+  },
+  "offline_boundary_suite": {
+    "execution_mode": "offline_contract_check",
+    "live_executed": false,
+    "proves_15_image_4096_contract_offline": true,
+    "ordinary_1080p_proves_4096_limit": false,
+    "project_vs_provider_note": "Project P0 caps (8 index / 16 QA images per request) are separate from provider caps (600 images max, 4096px side limit at >=15 images, 48 MiB serialized body).",
+    "cases": [
+      {
+        "case_id": "14_images_4096px",
+        "image_count": 14,
+        "max_side_px": 4096,
+        "effective_max_side_px": 8192,
+        "actual_serialized_body_bytes": 42571,
+        "serialized_request_body_sha256": "9b1d83217621b9c6fa1c47c35e12765118cf31c904c7a6ceec11834bcd3fa14f",
+        "evaluated_body_bytes": 42571,
+        "max_request_body_bytes": 50331648,
+        "allowed_by_documented_contract": true,
+        "violations": [],
+        "exercises_15_img_4096_boundary": false,
+        "triggers_15_img_4096_rejection": false,
+        "ordinary_1080p_note": null
+      },
+      {
+        "case_id": "14_images_4097px",
+        "image_count": 14,
+        "max_side_px": 4097,
+        "effective_max_side_px": 8192,
+        "actual_serialized_body_bytes": 43355,
+        "serialized_request_body_sha256": "27bf96f4673a3d28c6e0b5c1141e32b871c141aa92b06f24a2e29c46de4ca9da",
+        "evaluated_body_bytes": 43355,
+        "max_request_body_bytes": 50331648,
+        "allowed_by_documented_contract": true,
+        "violations": [],
+        "exercises_15_img_4096_boundary": false,
+        "triggers_15_img_4096_rejection": false,
+        "ordinary_1080p_note": null
+      },
+      {
+        "case_id": "15_images_4096px",
+        "image_count": 15,
+        "max_side_px": 4096,
+        "effective_max_side_px": 4096,
+        "actual_serialized_body_bytes": 45597,
+        "serialized_request_body_sha256": "8d5621543a8718f8a83b71c5f7b6ee2bcfbe1b34ae97c6ea7d45f7f8e453e66f",
+        "evaluated_body_bytes": 45597,
+        "max_request_body_bytes": 50331648,
+        "allowed_by_documented_contract": true,
+        "violations": [],
+        "exercises_15_img_4096_boundary": true,
+        "triggers_15_img_4096_rejection": false,
+        "ordinary_1080p_note": null
+      },
+      {
+        "case_id": "15_images_4097px",
+        "image_count": 15,
+        "max_side_px": 4097,
+        "effective_max_side_px": 4096,
+        "actual_serialized_body_bytes": 46437,
+        "serialized_request_body_sha256": "007bc5eab0c7d49d378ca1ec668f68572afcbd4d5c056ba00b7404df469901c7",
+        "evaluated_body_bytes": 46437,
+        "max_request_body_bytes": 50331648,
+        "allowed_by_documented_contract": false,
+        "violations": [
+          "IMAGE_DIMENSION_LIMIT_EXCEEDED"
+        ],
+        "exercises_15_img_4096_boundary": true,
+        "triggers_15_img_4096_rejection": true,
+        "ordinary_1080p_note": null
+      },
+      {
+        "case_id": "16_images_4096px",
+        "image_count": 16,
+        "max_side_px": 4096,
+        "effective_max_side_px": 4096,
+        "actual_serialized_body_bytes": 48623,
+        "serialized_request_body_sha256": "4b723e3985ed03932d821dd8ca5a75a72183693d5e01101bc721644c28283fa2",
+        "evaluated_body_bytes": 48623,
+        "max_request_body_bytes": 50331648,
+        "allowed_by_documented_contract": true,
+        "violations": [],
+        "exercises_15_img_4096_boundary": true,
+        "triggers_15_img_4096_rejection": false,
+        "ordinary_1080p_note": null
+      },
+      {
+        "case_id": "16_images_4097px",
+        "image_count": 16,
+        "max_side_px": 4097,
+        "effective_max_side_px": 4096,
+        "actual_serialized_body_bytes": 49519,
+        "serialized_request_body_sha256": "e7affeb467763942cdb164cd31aa730c9c525ca59a6383436ecc71019e3c0db1",
+        "evaluated_body_bytes": 49519,
+        "max_request_body_bytes": 50331648,
+        "allowed_by_documented_contract": false,
+        "violations": [
+          "IMAGE_DIMENSION_LIMIT_EXCEEDED"
+        ],
+        "exercises_15_img_4096_boundary": true,
+        "triggers_15_img_4096_rejection": true,
+        "ordinary_1080p_note": null
+      },
+      {
+        "case_id": "15_images_ordinary_1080p_non_proof",
+        "image_count": 15,
+        "max_side_px": 1920,
+        "effective_max_side_px": 4096,
+        "actual_serialized_body_bytes": 191715,
+        "serialized_request_body_sha256": "d952b175de01341378b0d6b3a644e02620aa1019747d2f2b7f2771e317169b1d",
+        "evaluated_body_bytes": 191715,
+        "max_request_body_bytes": 50331648,
+        "allowed_by_documented_contract": true,
+        "violations": [],
+        "exercises_15_img_4096_boundary": false,
+        "triggers_15_img_4096_rejection": false,
+        "ordinary_1080p_note": "ordinary_1080p_cannot_prove_4096px_limit: max_side_px<=1920 does not cross 4096px"
+      },
+      {
+        "case_id": "body_over_48mib_offline_guard",
+        "image_count": 1,
+        "max_side_px": 1920,
+        "effective_max_side_px": 8192,
+        "actual_serialized_body_bytes": 12985,
+        "serialized_request_body_sha256": "7b20ea8aa5655e49cf1dd477f9cb14ee6140f005b83d5647657b06fc90219bec",
+        "evaluated_body_bytes": 50331649,
+        "max_request_body_bytes": 50331648,
+        "allowed_by_documented_contract": false,
+        "violations": [
+          "REQUEST_BODY_LIMIT_EXCEEDED"
+        ],
+        "exercises_15_img_4096_boundary": false,
+        "triggers_15_img_4096_rejection": false,
+        "ordinary_1080p_note": "ordinary_1080p_cannot_prove_4096px_limit: max_side_px<=1920 does not cross 4096px"
+      }
+    ]
+  },
+  "software_tutorial_offline_comparison": {
+    "source_kind": "authorized_real_frame",
+    "high_guarantees_small_text_legibility": false,
+    "vendor_internal_resize_note": "Official Vision docs state detail='high' equals 'original' (no 512px low pre-scale), but before inference every image is still resized to ~1300x1300 (capped at 1024 tokens/image). Therefore detail='high' does NOT guarantee small text is always readable.",
+    "strategy_a_original_high": {
+      "name": "original_frame_detail_high",
+      "detail": "high",
+      "image_dimensions": [
+        [
+          2560,
+          1600
+        ]
+      ],
+      "image_parts": 1,
+      "raw_image_bytes": 273901,
+      "serialized_request_body_bytes": 365687,
+      "serialized_request_body_sha256": "714fcb1214e8864fb8e060af7debcab8d1f3ef2b41fe219e304719cf89a5b075",
+      "within_48mib_limit": true,
+      "latency_ms": null,
+      "usage": null,
+      "quality_status": "not_tested_live"
+    },
+    "strategy_b_960_plus_grid_roi": {
+      "name": "overview_960_plus_numbered_grid_roi",
+      "roi_region_id": "r2c1",
+      "roi_cropped_from_ungridded_original": true,
+      "roi_crop_bbox_px": {
+        "x0": 0,
+        "y0": 480,
+        "x1": 939,
+        "y1": 1120
+      },
+      "grid_preview_is_fact_evidence": false,
+      "image_dimensions": [
+        [
+          960,
+          600
+        ],
+        [
+          960,
+          600
+        ],
+        [
+          939,
+          640
+        ]
+      ],
+      "image_parts": 3,
+      "raw_image_bytes": 223895,
+      "serialized_request_body_bytes": 299229,
+      "serialized_request_body_sha256": "bc33433f94d67676cb98ad62d54f1a7d4fde89b0ca21a06f1717f1354f2758e8",
+      "within_48mib_limit": true,
+      "latency_ms": null,
+      "usage": null,
+      "quality_status": "not_tested_live"
+    },
+    "sample_id": "m0_a1_vg_sd6_gui",
+    "benchmark": "videogui",
+    "frame_relative_path": "data/datasets/m0_a1_extracted/m0_a1_vg_sd6_gui.png",
+    "frame_sha256": "2ab3c81ead2b5c926b6c3fead30ebcfe2b9cd80dc3a97e88808e90b68c88b175",
+    "all_extracted_m0_a1_summary": {
+      "roi_sample_count": 8,
+      "multi_image_sequence_count": 3,
+      "verified_real_frame_count": 26
+    }
+  },
+  "m0_a1_real_benchmark_offline_evaluation": {
+    "manifest_relative_path": "experiments/manifests/benchmark_subset_manifest.json",
+    "manifest_schema_version": "m0-benchmark-subset-v1",
+    "dataset_total_bytes": 417760729,
+    "dataset_within_20gb_cap": true,
+    "verified_real_frame_count": 26,
+    "missing_local_frame_count": 0,
+    "live_executed": false,
+    "roi_comparisons": [
+      {
+        "sample_id": "m0_a1_vg_sd6_gui",
+        "benchmark": "videogui",
+        "parent_artifact_id": "vg_mid_sd6_s0_start",
+        "probe_purpose": "software_tutorial_high_vs_grid_roi",
+        "frame_id": "sd6_gui_0",
+        "frame_relative_path": "data/datasets/m0_a1_extracted/m0_a1_vg_sd6_gui.png",
+        "frame_sha256": "2ab3c81ead2b5c926b6c3fead30ebcfe2b9cd80dc3a97e88808e90b68c88b175",
+        "timestamp_kind": "static_gui_keyframe",
+        "actual_pts_ms": null,
+        "comparison": {
+          "source_kind": "authorized_real_frame",
+          "high_guarantees_small_text_legibility": false,
+          "vendor_internal_resize_note": "Official Vision docs state detail='high' equals 'original' (no 512px low pre-scale), but before inference every image is still resized to ~1300x1300 (capped at 1024 tokens/image). Therefore detail='high' does NOT guarantee small text is always readable.",
+          "strategy_a_original_high": {
+            "name": "original_frame_detail_high",
+            "detail": "high",
+            "image_dimensions": [
+              [
+                2560,
+                1600
+              ]
+            ],
+            "image_parts": 1,
+            "raw_image_bytes": 273901,
+            "serialized_request_body_bytes": 365687,
+            "serialized_request_body_sha256": "714fcb1214e8864fb8e060af7debcab8d1f3ef2b41fe219e304719cf89a5b075",
+            "within_48mib_limit": true,
+            "latency_ms": null,
+            "usage": null,
+            "quality_status": "not_tested_live"
+          },
+          "strategy_b_960_plus_grid_roi": {
+            "name": "overview_960_plus_numbered_grid_roi",
+            "roi_region_id": "r2c1",
+            "roi_cropped_from_ungridded_original": true,
+            "roi_crop_bbox_px": {
+              "x0": 0,
+              "y0": 480,
+              "x1": 939,
+              "y1": 1120
+            },
+            "grid_preview_is_fact_evidence": false,
+            "image_dimensions": [
+              [
+                960,
+                600
+              ],
+              [
+                960,
+                600
+              ],
+              [
+                939,
+                640
+              ]
+            ],
+            "image_parts": 3,
+            "raw_image_bytes": 223895,
+            "serialized_request_body_bytes": 299229,
+            "serialized_request_body_sha256": "bc33433f94d67676cb98ad62d54f1a7d4fde89b0ca21a06f1717f1354f2758e8",
+            "within_48mib_limit": true,
+            "latency_ms": null,
+            "usage": null,
+            "quality_status": "not_tested_live"
+          }
+        }
+      },
+      {
+        "sample_id": "m0_a1_vg_ae_10_gui",
+        "benchmark": "videogui",
+        "parent_artifact_id": "vg_mid_ae_10_s0_start",
+        "probe_purpose": "software_tutorial_high_vs_grid_roi",
+        "frame_id": "ae_10_gui_0",
+        "frame_relative_path": "data/datasets/m0_a1_extracted/m0_a1_vg_ae_10_gui.png",
+        "frame_sha256": "efa1dd1ba045c2ffcb5dcb8caaecda1b3a0d8785c2abfe7f3c2eb3a71a56ed90",
+        "timestamp_kind": "static_gui_keyframe",
+        "actual_pts_ms": null,
+        "comparison": {
+          "source_kind": "authorized_real_frame",
+          "high_guarantees_small_text_legibility": false,
+          "vendor_internal_resize_note": "Official Vision docs state detail='high' equals 'original' (no 512px low pre-scale), but before inference every image is still resized to ~1300x1300 (capped at 1024 tokens/image). Therefore detail='high' does NOT guarantee small text is always readable.",
+          "strategy_a_original_high": {
+            "name": "original_frame_detail_high",
+            "detail": "high",
+            "image_dimensions": [
+              [
+                2560,
+                1600
+              ]
+            ],
+            "image_parts": 1,
+            "raw_image_bytes": 402200,
+            "serialized_request_body_bytes": 536751,
+            "serialized_request_body_sha256": "32fa2a10ba68f729c711830ce7b7aad72531748e7ae930af56fa3097fdc3d6b6",
+            "within_48mib_limit": true,
+            "latency_ms": null,
+            "usage": null,
+            "quality_status": "not_tested_live"
+          },
+          "strategy_b_960_plus_grid_roi": {
+            "name": "overview_960_plus_numbered_grid_roi",
+            "roi_region_id": "r2c2",
+            "roi_cropped_from_ungridded_original": true,
+            "roi_crop_bbox_px": {
+              "x0": 768,
+              "y0": 480,
+              "x1": 1792,
+              "y1": 1120
+            },
+            "grid_preview_is_fact_evidence": false,
+            "image_dimensions": [
+              [
+                960,
+                600
+              ],
+              [
+                960,
+                600
+              ],
+              [
+                1024,
+                640
+              ]
+            ],
+            "image_parts": 3,
+            "raw_image_bytes": 308915,
+            "serialized_request_body_bytes": 412589,
+            "serialized_request_body_sha256": "927148c67a18d3076961dc4c8d74ab940aae177120df7427c6bb89888133cccc",
+            "within_48mib_limit": true,
+            "latency_ms": null,
+            "usage": null,
+            "quality_status": "not_tested_live"
+          }
+        }
+      },
+      {
+        "sample_id": "m0_a1_vg_pr_10_gui",
+        "benchmark": "videogui",
+        "parent_artifact_id": "vg_mid_pr_10_s0_start",
+        "probe_purpose": "software_tutorial_high_vs_grid_roi",
+        "frame_id": "pr_10_gui_0",
+        "frame_relative_path": "data/datasets/m0_a1_extracted/m0_a1_vg_pr_10_gui.png",
+        "frame_sha256": "edf6ddf2c33d3889fcc07271b736fbca2997d3194ec94886bd96838b5a990372",
+        "timestamp_kind": "static_gui_keyframe",
+        "actual_pts_ms": null,
+        "comparison": {
+          "source_kind": "authorized_real_frame",
+          "high_guarantees_small_text_legibility": false,
+          "vendor_internal_resize_note": "Official Vision docs state detail='high' equals 'original' (no 512px low pre-scale), but before inference every image is still resized to ~1300x1300 (capped at 1024 tokens/image). Therefore detail='high' does NOT guarantee small text is always readable.",
+          "strategy_a_original_high": {
+            "name": "original_frame_detail_high",
+            "detail": "high",
+            "image_dimensions": [
+              [
+                1920,
+                1080
+              ]
+            ],
+            "image_parts": 1,
+            "raw_image_bytes": 226584,
+            "serialized_request_body_bytes": 302595,
+            "serialized_request_body_sha256": "e5b4523de3432605290257250dd5c417a23bfb4b67b9b2451ba0654c379edc3b",
+            "within_48mib_limit": true,
+            "latency_ms": null,
+            "usage": null,
+            "quality_status": "not_tested_live"
+          },
+          "strategy_b_960_plus_grid_roi": {
+            "name": "overview_960_plus_numbered_grid_roi",
+            "roi_region_id": "r2c2",
+            "roi_cropped_from_ungridded_original": true,
+            "roi_crop_bbox_px": {
+              "x0": 576,
+              "y0": 324,
+              "x1": 1344,
+              "y1": 756
+            },
+            "grid_preview_is_fact_evidence": false,
+            "image_dimensions": [
+              [
+                960,
+                540
+              ],
+              [
+                960,
+                540
+              ],
+              [
+                768,
+                432
+              ]
+            ],
+            "image_parts": 3,
+            "raw_image_bytes": 226696,
+            "serialized_request_body_bytes": 302965,
+            "serialized_request_body_sha256": "4021f0402cce49f4c4dcdf57d16a3c03e32eecc9dedafb404a7513329f9008fc",
+            "within_48mib_limit": true,
+            "latency_ms": null,
+            "usage": null,
+            "quality_status": "not_tested_live"
+          }
+        }
+      },
+      {
+        "sample_id": "m0_a1_vg_ps_10_gui",
+        "benchmark": "videogui",
+        "parent_artifact_id": "vg_mid_ps_10_s0_start",
+        "probe_purpose": "software_tutorial_high_vs_grid_roi",
+        "frame_id": "ps_10_gui_0",
+        "frame_relative_path": "data/datasets/m0_a1_extracted/m0_a1_vg_ps_10_gui.png",
+        "frame_sha256": "e8f9dc21864cd5122bef3b5665eba80c16a9b28c22b8081ad5182004cded534b",
+        "timestamp_kind": "static_gui_keyframe",
+        "actual_pts_ms": null,
+        "comparison": {
+          "source_kind": "authorized_real_frame",
+          "high_guarantees_small_text_legibility": false,
+          "vendor_internal_resize_note": "Official Vision docs state detail='high' equals 'original' (no 512px low pre-scale), but before inference every image is still resized to ~1300x1300 (capped at 1024 tokens/image). Therefore detail='high' does NOT guarantee small text is always readable.",
+          "strategy_a_original_high": {
+            "name": "original_frame_detail_high",
+            "detail": "high",
+            "image_dimensions": [
+              [
+                2560,
+                1600
+              ]
+            ],
+            "image_parts": 1,
+            "raw_image_bytes": 381026,
+            "serialized_request_body_bytes": 508519,
+            "serialized_request_body_sha256": "abbc00e8d13cb3a3aba9e9667f651d164a57e6e151354cd22f13dadc4c394725",
+            "within_48mib_limit": true,
+            "latency_ms": null,
+            "usage": null,
+            "quality_status": "not_tested_live"
+          },
+          "strategy_b_960_plus_grid_roi": {
+            "name": "overview_960_plus_numbered_grid_roi",
+            "roi_region_id": "r2c2",
+            "roi_cropped_from_ungridded_original": true,
+            "roi_crop_bbox_px": {
+              "x0": 768,
+              "y0": 480,
+              "x1": 1792,
+              "y1": 1120
+            },
+            "grid_preview_is_fact_evidence": false,
+            "image_dimensions": [
+              [
+                960,
+                600
+              ],
+              [
+                960,
+                600
+              ],
+              [
+                1024,
+                640
+              ]
+            ],
+            "image_parts": 3,
+            "raw_image_bytes": 273908,
+            "serialized_request_body_bytes": 365913,
+            "serialized_request_body_sha256": "61712d00f83134fbd9fba86f2f0a63f02902480689561f156f8ef2acf0049f48",
+            "within_48mib_limit": true,
+            "latency_ms": null,
+            "usage": null,
+            "quality_status": "not_tested_live"
+          }
+        }
+      },
+      {
+        "sample_id": "m0_a1_vg_dv_10_gui",
+        "benchmark": "videogui",
+        "parent_artifact_id": "vg_mid_dv_10_s0_start",
+        "probe_purpose": "software_tutorial_high_vs_grid_roi",
+        "frame_id": "dv_10_gui_0",
+        "frame_relative_path": "data/datasets/m0_a1_extracted/m0_a1_vg_dv_10_gui.png",
+        "frame_sha256": "85cae8675b2ebf2d6b7ce7d9014a7bc54b24c34d2992994ba5968c6d7173ee93",
+        "timestamp_kind": "static_gui_keyframe",
+        "actual_pts_ms": null,
+        "comparison": {
+          "source_kind": "authorized_real_frame",
+          "high_guarantees_small_text_legibility": false,
+          "vendor_internal_resize_note": "Official Vision docs state detail='high' equals 'original' (no 512px low pre-scale), but before inference every image is still resized to ~1300x1300 (capped at 1024 tokens/image). Therefore detail='high' does NOT guarantee small text is always readable.",
+          "strategy_a_original_high": {
+            "name": "original_frame_detail_high",
+            "detail": "high",
+            "image_dimensions": [
+              [
+                2560,
+                1600
+              ]
+            ],
+            "image_parts": 1,
+            "raw_image_bytes": 310123,
+            "serialized_request_body_bytes": 413983,
+            "serialized_request_body_sha256": "710237c4922f9e7f64183c3be88f7ba90db72f176145fea3daad61b318635d7c",
+            "within_48mib_limit": true,
+            "latency_ms": null,
+            "usage": null,
+            "quality_status": "not_tested_live"
+          },
+          "strategy_b_960_plus_grid_roi": {
+            "name": "overview_960_plus_numbered_grid_roi",
+            "roi_region_id": "r2c2",
+            "roi_cropped_from_ungridded_original": true,
+            "roi_crop_bbox_px": {
+              "x0": 768,
+              "y0": 480,
+              "x1": 1792,
+              "y1": 1120
+            },
+            "grid_preview_is_fact_evidence": false,
+            "image_dimensions": [
+              [
+                960,
+                600
+              ],
+              [
+                960,
+                600
+              ],
+              [
+                1024,
+                640
+              ]
+            ],
+            "image_parts": 3,
+            "raw_image_bytes": 208572,
+            "serialized_request_body_bytes": 278801,
+            "serialized_request_body_sha256": "6ffc3ecb75cdb34cc916d73f2d07e3bbcf64a96d3fd48f3f189ee93b52907696",
+            "within_48mib_limit": true,
+            "latency_ms": null,
+            "usage": null,
+            "quality_status": "not_tested_live"
+          }
+        }
+      },
+      {
+        "sample_id": "m0_a1_ocr_941_dialog",
+        "benchmark": "mme_videoocr",
+        "parent_artifact_id": "ocr_941",
+        "probe_purpose": "software_tutorial_high_vs_grid_roi",
+        "frame_id": "m0_a1_ocr_941_dialog_f1",
+        "frame_relative_path": "data/datasets/m0_a1_extracted/m0_a1_ocr_941_dialog_f1_15000ms.png",
+        "frame_sha256": "2eecdb0551fd559fc64da88cf737c4305744a995b15bdcc164133a86a8822575",
+        "timestamp_kind": "ffprobe_actual_pts",
+        "actual_pts_ms": 15013,
+        "comparison": {
+          "source_kind": "authorized_real_frame",
+          "high_guarantees_small_text_legibility": false,
+          "vendor_internal_resize_note": "Official Vision docs state detail='high' equals 'original' (no 512px low pre-scale), but before inference every image is still resized to ~1300x1300 (capped at 1024 tokens/image). Therefore detail='high' does NOT guarantee small text is always readable.",
+          "strategy_a_original_high": {
+            "name": "original_frame_detail_high",
+            "detail": "high",
+            "image_dimensions": [
+              [
+                1920,
+                1080
+              ]
+            ],
+            "image_parts": 1,
+            "raw_image_bytes": 182368,
+            "serialized_request_body_bytes": 243643,
+            "serialized_request_body_sha256": "6e29fbfce17727e441e50138940126615ced6164a3ac6fd01febe0ab8231c05a",
+            "within_48mib_limit": true,
+            "latency_ms": null,
+            "usage": null,
+            "quality_status": "not_tested_live"
+          },
+          "strategy_b_960_plus_grid_roi": {
+            "name": "overview_960_plus_numbered_grid_roi",
+            "roi_region_id": "r2c2",
+            "roi_cropped_from_ungridded_original": true,
+            "roi_crop_bbox_px": {
+              "x0": 576,
+              "y0": 324,
+              "x1": 1344,
+              "y1": 756
+            },
+            "grid_preview_is_fact_evidence": false,
+            "image_dimensions": [
+              [
+                960,
+                540
+              ],
+              [
+                960,
+                540
+              ],
+              [
+                768,
+                432
+              ]
+            ],
+            "image_parts": 3,
+            "raw_image_bytes": 178434,
+            "serialized_request_body_bytes": 238621,
+            "serialized_request_body_sha256": "cc99cabe8528c6f30b2d8eac504dd71738d108cd3f83568764a3d0cd273a42f7",
+            "within_48mib_limit": true,
+            "latency_ms": null,
+            "usage": null,
+            "quality_status": "not_tested_live"
+          }
+        }
+      },
+      {
+        "sample_id": "m0_a1_ocr_903_chinese_ocr",
+        "benchmark": "mme_videoocr",
+        "parent_artifact_id": "ocr_903",
+        "probe_purpose": "chinese_small_text_ocr",
+        "frame_id": "m0_a1_ocr_903_chinese_ocr_f1",
+        "frame_relative_path": "data/datasets/m0_a1_extracted/m0_a1_ocr_903_chinese_ocr_f1_14000ms.png",
+        "frame_sha256": "82d160b14666bdb28ab3d5a552dba6bcb5201d31435952c5397d0e3464d8a564",
+        "timestamp_kind": "ffprobe_actual_pts",
+        "actual_pts_ms": 14000,
+        "comparison": {
+          "source_kind": "authorized_real_frame",
+          "high_guarantees_small_text_legibility": false,
+          "vendor_internal_resize_note": "Official Vision docs state detail='high' equals 'original' (no 512px low pre-scale), but before inference every image is still resized to ~1300x1300 (capped at 1024 tokens/image). Therefore detail='high' does NOT guarantee small text is always readable.",
+          "strategy_a_original_high": {
+            "name": "original_frame_detail_high",
+            "detail": "high",
+            "image_dimensions": [
+              [
+                1280,
+                720
+              ]
+            ],
+            "image_parts": 1,
+            "raw_image_bytes": 158745,
+            "serialized_request_body_bytes": 212143,
+            "serialized_request_body_sha256": "898b1ec34d877fd9a820de1d96b9b08a98ae76c300d8057fc7c626cb6278fb84",
+            "within_48mib_limit": true,
+            "latency_ms": null,
+            "usage": null,
+            "quality_status": "not_tested_live"
+          },
+          "strategy_b_960_plus_grid_roi": {
+            "name": "overview_960_plus_numbered_grid_roi",
+            "roi_region_id": "r2c2",
+            "roi_cropped_from_ungridded_original": true,
+            "roi_crop_bbox_px": {
+              "x0": 384,
+              "y0": 216,
+              "x1": 896,
+              "y1": 504
+            },
+            "grid_preview_is_fact_evidence": false,
+            "image_dimensions": [
+              [
+                960,
+                540
+              ],
+              [
+                960,
+                540
+              ],
+              [
+                512,
+                288
+              ]
+            ],
+            "image_parts": 3,
+            "raw_image_bytes": 265373,
+            "serialized_request_body_bytes": 354537,
+            "serialized_request_body_sha256": "5be49e12b3308384a8403dc3c3a927e3b5c6abfd5200f6af4af62e3d7992380c",
+            "within_48mib_limit": true,
+            "latency_ms": null,
+            "usage": null,
+            "quality_status": "not_tested_live"
+          }
+        }
+      },
+      {
+        "sample_id": "m0_a1_ocr_1243_ide_code",
+        "benchmark": "mme_videoocr",
+        "parent_artifact_id": "ocr_1243",
+        "probe_purpose": "software_tutorial_high_vs_grid_roi",
+        "frame_id": "m0_a1_ocr_1243_ide_code_f1",
+        "frame_relative_path": "data/datasets/m0_a1_extracted/m0_a1_ocr_1243_ide_code_f1_18000ms.png",
+        "frame_sha256": "6ad0fc71b8fb7f18e603e60a7a6bb7cd9bddc3b6add3ed301d16ce439c9bb599",
+        "timestamp_kind": "ffprobe_actual_pts",
+        "actual_pts_ms": 18000,
+        "comparison": {
+          "source_kind": "authorized_real_frame",
+          "high_guarantees_small_text_legibility": false,
+          "vendor_internal_resize_note": "Official Vision docs state detail='high' equals 'original' (no 512px low pre-scale), but before inference every image is still resized to ~1300x1300 (capped at 1024 tokens/image). Therefore detail='high' does NOT guarantee small text is always readable.",
+          "strategy_a_original_high": {
+            "name": "original_frame_detail_high",
+            "detail": "high",
+            "image_dimensions": [
+              [
+                1280,
+                720
+              ]
+            ],
+            "image_parts": 1,
+            "raw_image_bytes": 56208,
+            "serialized_request_body_bytes": 75427,
+            "serialized_request_body_sha256": "38acae984f8821f8042e3ff3a8ba232edd882673ebab4441fdd2dacd4d8fca45",
+            "within_48mib_limit": true,
+            "latency_ms": null,
+            "usage": null,
+            "quality_status": "not_tested_live"
+          },
+          "strategy_b_960_plus_grid_roi": {
+            "name": "overview_960_plus_numbered_grid_roi",
+            "roi_region_id": "r2c2",
+            "roi_cropped_from_ungridded_original": true,
+            "roi_crop_bbox_px": {
+              "x0": 384,
+              "y0": 216,
+              "x1": 896,
+              "y1": 504
+            },
+            "grid_preview_is_fact_evidence": false,
+            "image_dimensions": [
+              [
+                960,
+                540
+              ],
+              [
+                960,
+                540
+              ],
+              [
+                512,
+                288
+              ]
+            ],
+            "image_parts": 3,
+            "raw_image_bytes": 104223,
+            "serialized_request_body_bytes": 139669,
+            "serialized_request_body_sha256": "f9679c8e5d53168a4acb47d736ef20ddc299478f262ac8a65a8dc55f91d54879",
+            "within_48mib_limit": true,
+            "latency_ms": null,
+            "usage": null,
+            "quality_status": "not_tested_live"
+          }
+        }
+      }
+    ],
+    "multi_image_order_sequences": [
+      {
+        "sample_id": "m0_a1_ocr_905_typing_order",
+        "benchmark": "mme_videoocr",
+        "parent_artifact_id": "ocr_905",
+        "frame_count": 4,
+        "actual_pts_ms_sequence": [
+          2000,
+          8000,
+          14000,
+          20000
+        ],
+        "pts_strictly_increasing": true,
+        "serialized_request_body_bytes": 957304,
+        "serialized_request_body_sha256": "b9043bdbbcddf50d7e535e77b7b00d70a16744e13165d397725094311160681c",
+        "allowed_by_documented_contract": true,
+        "within_p0_index_8_image_cap": true,
+        "quality_status": "not_tested_live"
+      },
+      {
+        "sample_id": "m0_a1_vmme_001_order",
+        "benchmark": "video_mme_v2",
+        "parent_artifact_id": "vmme_001",
+        "frame_count": 4,
+        "actual_pts_ms_sequence": [
+          30000,
+          120000,
+          240000,
+          360000
+        ],
+        "pts_strictly_increasing": true,
+        "serialized_request_body_bytes": 944342,
+        "serialized_request_body_sha256": "01ef5900b12a51aba23397c9090892360fbaa3edce760c4ae138f4c52bbedcce",
+        "allowed_by_documented_contract": true,
+        "within_p0_index_8_image_cap": true,
+        "quality_status": "not_tested_live"
+      },
+      {
+        "sample_id": "m0_a1_vmme_087_procedural",
+        "benchmark": "video_mme_v2",
+        "parent_artifact_id": "vmme_087",
+        "frame_count": 4,
+        "actual_pts_ms_sequence": [
+          15000,
+          55000,
+          105000,
+          150000
+        ],
+        "pts_strictly_increasing": true,
+        "serialized_request_body_bytes": 615275,
+        "serialized_request_body_sha256": "120b866cb34b9c340cdad9a237d5cbfcfd6ce7cd60a2d39d3372f5d4e6f53041",
+        "allowed_by_documented_contract": true,
+        "within_p0_index_8_image_cap": true,
+        "quality_status": "not_tested_live"
+      }
+    ]
+  },
+  "budget_ledger": {
+    "model_attempts": 0,
+    "provider_http_attempts": 0,
+    "transferred_bytes": 0,
+    "sent_image_parts": 0,
+    "cost_status": "confirmed",
+    "note": "Offline verification only; zero outbound cloud calls were made."
+  },
+  "decision": {
+    "verdict": "pause_pending_live_verification",
+    "rationale": "Official DeepSeek contract (2026-11-25), offline 14/15/16 x 4096/4097px & 48 MiB boundary checks, OpenAI SDK tool-image typing/serialization checks, and offline ROI & multi-image serialization checks on 26 real extracted M0-A1 frames (VideoGUI, MME-VideoOCR, Video-MME v2; <=20 GB subset) are complete. However, no live credentials or cloud egress consent were executed in this run; all live-dependent capabilities remain documented_supported or not_tested (zero runtime_verified). Supply explicit M0.0 live budget + credentials to execute live M0-A1 probes on the extracted frames before entering M1.5 cloud slice."
+  }
+}

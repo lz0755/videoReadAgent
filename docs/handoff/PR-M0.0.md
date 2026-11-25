@@ -1,0 +1,23 @@
+# PR-M0.0 交接
+- 状态：待独立审核（自查零阻断项，待外部/用户审查签字，**不自批为已合并**）；关联验收：M0-A1、M0-A3（环境与显式探针门禁前置）
+- 前置交接链接：无（初始环境准备 PR）
+- 基线 commit、Step A commit 与测试 diff hash：基线 `d551c60`；本轮未执行 git commit（M0.0 为指南第四节定义的环境准备 PR，不冒充业务 TDD 红绿）；当前测试文件 SHA-256：
+  - `tests/contract/test_probe_gate.py`: `703FB17FD402306B47A033BDFEC94A4AFD9AA4B9E17AD0778A638A4479571132`
+- 本次单一行为与允许修改路径：建立最小可安装包 `src/video_agent/__init__.py`、锁定依赖（`pyproject.toml`、`uv.lock`）、`AGENTS.md`、`tests/conftest.py`、`experiments/config/`、`experiments/probe_gate.py`、`tests/contract/test_probe_gate.py`
+- 代码真相源链接及合同是否变化：`pyproject.toml`、`experiments/probe_gate.py`、`experiments/config/probe_budget.example.yaml`、`experiments/config/provider_deepseek.yaml`。环境偏离：按用户决定保留 Python 3.14.6（计划基线为 3.11），已记录于 `docs/decisions/ADR-001.md`
+- 有效红灯：环境准备 PR（按指南第四节说明，安装与收集成功是环境证据，不冒充业务 TDD 红灯）
+- 绿灯：
+  - `uv run --no-sync pytest tests/contract/test_probe_gate.py -q -m "not provider_live and not model_local" --disable-socket --allow-unix-socket` → exit 0（22 passed）
+  - `uv run --no-sync ruff check src/video_agent experiments tests` → exit 0
+  - `uv run --no-sync ruff format --check src/video_agent experiments tests` → exit 0
+  - `uv run --no-sync mypy src/video_agent experiments tests` → exit 0
+- Fixture Self Check、真实集成与断网验证结果：Python socket 层通过 `pytest-socket`（`--disable-socket --allow-unix-socket`）验证无外联；操作系统/容器级 `--network none` 隔离验收尚未建立（归属 M1.1）
+- 未运行检查及原因：OS 级容器断网（M1.1 交付）；`lint-imports` 尚无模块合约（M1.1/M1.3 建立 `domain`/`application`/`adapters` 后启用）
+- 实际模型/HTTP/工具/图片调用数；estimated/confirmed/unknown：0 次模型调用、0 次 Provider HTTP 调用、0 字节传输；`confirmed`（零费用）
+- 依赖锁、模型、Prompt bundle、Schema 与数据版本：`uv.lock`（40 个锁定包，含 `httpx==0.28.1`、`openai==3.59.0`、`pillow==13.0.0`、`pyyaml==6.0.4`、`pytest==9.2.0`、`pytest-socket==0.8.1`、`ruff==0.17.6`、`mypy==2.4.1`、`import-linter==2.17`）；Prompt/Schema 尚未建立（M1）
+- 已知限制、恢复/回滚方式、独立审查结论：保留 Python 3.14.6 需在后续媒体/ASR 阶段验证 `PyAV` 与 `faster-whisper` 兼容性；回滚可直接恢复 `pyproject.toml`/`uv.lock` 并移除新增文件；**独立审查状态：待独立审查签字**（以下为对照指南第五节阻断清单的预审核自查，不能替代独立审查者）：
+  - [x] 无默认联网/无静默外发：默认测试通过 `--disable-socket --allow-unix-socket`，`probe_gate.py` 缺 `cloud_egress_authorized: true` 或 `live_enabled: true` 明确阻断；
+  - [x] 无未记录的依赖升级：锁定 `uv.lock`（SHA-256 `89da7437082eb9942855bf2cfe6b519bbeee901b05bd5dea28db122078b1c4e0`），Python 3.14.6 偏离已入 `ADR-001.md`；
+  - [x] 无弱化/跳过失败测试：22/22 合约测试全通过，零 `skip`/`xfail`；
+  - [ ] 待独立审查者最终确认并执行 git commit / 合并。
+- 下一PR需要读取的文件和仍未解决问题：下一 PR（M0.1）读取 `AGENTS.md`、`experiments/probe_gate.py`、`experiments/config/probe_budget.example.yaml`、`experiments/config/provider_deepseek.yaml`

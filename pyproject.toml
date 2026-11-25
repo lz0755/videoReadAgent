@@ -1,17 +1,59 @@
 [project]
-name = "videoreadagent"
+name = "video-agent"
 version = "0.1.0"
-description = "Add your description here"
+description = "Local authorized video understanding agent (M0 probe & engineering foundation)"
 readme = "README.md"
 authors = [
-    { name = "lz0755", email = "zenithbeta@gmail.com" }
+    { name = "lz0755", email = "zenithbeta@gmail.com" },
 ]
 requires-python = ">=3.14"
-dependencies = []
+dependencies = [
+    "httpx>=0.28.1",
+    "openai>=2.0.0",
+    "pillow>=11.0.0",
+    "pyyaml>=6.0.2",
+]
 
-[project.scripts]
-videoreadagent = "videoreadagent:main"
+[dependency-groups]
+dev = [
+    "import-linter>=2.3",
+    "mypy>=1.18.0",
+    "pytest>=8.4.0",
+    "pytest-socket>=0.7.0",
+    "ruff>=0.14.0",
+    "types-PyYAML>=6.0.12.20250915",
+]
 
 [build-system]
 requires = ["uv_build>=0.13.6,<0.14.0"]
 build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "video_agent"
+module-root = "src"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+addopts = "--strict-markers"
+markers = [
+    "provider_live: tests requiring explicit cloud egress consent, credentials, and probe budget",
+    "model_local: tests requiring pre-downloaded local model weights under offline isolation",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.mypy]
+python_version = "3.14"
+strict = true
+warn_unused_configs = true
+files = ["src/video_agent", "experiments", "tests"]
+
+[tool.importlinter]
+root_package = "video_agent"
+include_external_packages = true
