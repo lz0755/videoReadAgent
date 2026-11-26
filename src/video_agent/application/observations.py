@@ -83,7 +83,12 @@ def fuse_window(
         facts = obs.model_dump(exclude={"observation_id", "provenance"})
         source = provenance.model_dump()
         if obs.region_hint is not None:
-            source["parent_frame"] = next(by_frame[e] for e in obs.evidence_ids if e in by_frame)
+            parents_for_hint = {by_frame[e] for e in obs.evidence_ids if e in by_frame}
+            if len(parents_for_hint) != 1:
+                raise DomainValidationError(
+                    ErrorCode.INVALID_CITATION, "ambiguous region hint parent"
+                )
+            source["parent_frame"] = parents_for_hint.pop()
             source["hint_window"] = window.model_dump_json()
         oid = "obs_" + canonical_json_sha256([facts, source])
         rows[oid] = obs.model_copy(update={"observation_id": oid, "provenance": source})

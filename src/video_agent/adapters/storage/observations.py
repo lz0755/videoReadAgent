@@ -23,13 +23,16 @@ class SQLiteObservations:
 
 
 def _write_evidence(
-    conn: sqlite3.Connection, item: FrameEvidence | TranscriptSegment, now: str
+    conn: sqlite3.Connection, item: FrameEvidence | TranscriptSegment, now: str, parent: str | None
 ) -> None:
+    payload = item.model_dump()
+    if parent is not None and parent != item.evidence_id:
+        payload["parent_evidence_id"] = parent
     old = conn.execute(
         "SELECT payload,asset_id FROM evidence WHERE evidence_id=?", (item.evidence_id,)
     ).fetchone()
     if old:
-        if old[1] != item.asset_id or json.loads(old[0]) != item.model_dump():
+        if old[1] != item.asset_id or json.loads(old[0]) != payload:
             raise StorageError(ErrorCode.IDEMPOTENCY_CONFLICT, "immutable evidence differs")
         return
     if isinstance(item, FrameEvidence):
@@ -55,7 +58,7 @@ def _write_evidence(
             start,
             end,
             artifact,
-            item.model_dump_json(),
+            json.dumps(payload, ensure_ascii=False),
             now,
         ),
     )
@@ -72,10 +75,14 @@ def write_window(conn: sqlite3.Connection, result: WindowResult) -> None:
     ).fetchone():
         raise StorageError(ErrorCode.CROSS_ASSET_REFERENCE, "unknown analysis owner")
     now = datetime.now(UTC).isoformat()
+    parents = {
+        frame.evidence_id: parent.evidence_id
+        for frame, parent in zip(inputs.frames, result.originals, strict=True)
+    }
     for source in [*result.originals, *inputs.frames, *inputs.transcripts]:
         if source.asset_id != inputs.asset_id:
             raise StorageError(ErrorCode.CROSS_ASSET_REFERENCE, "foreign window evidence")
-        _write_evidence(conn, source, now)
+        _write_evidence(conn, source, now, parents.get(source.evidence_id))
     for obs in result.observations:
         row = (
             obs.observation_id,
