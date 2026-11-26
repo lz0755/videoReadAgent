@@ -975,6 +975,7 @@ def main(argv: list[str] | None = None, *, repo_root: Path | None = None) -> int
 
     report = run_slice_manifest(
         manifest_path=args.manifest,
+        repo_root=repo_root,
         mode=run_mode,
         data_root=args.data_root,
         live_provider=args.provider,
