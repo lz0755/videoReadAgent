@@ -27,6 +27,42 @@ class WindowResult(StrictModel):
     gaps: list[TimeRangeMs]
 
 
+def timeline_summary(results: list[WindowResult]) -> dict[str, object]:
+    """Select up to six cited extracts across the timeline and report actual visual coverage."""
+    first = results[0].inputs
+    unique = {o.observation_id: o for r in results for o in r.observations}
+    ordered = sorted(
+        unique.values(),
+        key=lambda o: (o.time_range.start_ms, o.time_range.end_ms, o.observation_id),
+    )
+    if len(ordered) > 6:
+        # Keep every observed/heard/inferred modality represented before filling timeline slots.
+        selected = {
+            next(i for i, o in enumerate(ordered) if o.kind == kind)
+            for kind in {o.kind for o in ordered}
+        }
+        for i in [round(j * (len(ordered) - 1) / 5) for j in range(6)]:
+            if len(selected) < 6:
+                selected.add(i)
+        ordered = [ordered[i] for i in sorted(selected)]
+    span = TimeRangeMs(
+        start_ms=min(r.inputs.window.start_ms for r in results),
+        end_ms=max(r.inputs.window.end_ms for r in results),
+    )
+    gaps = coverage_gaps(span, (f.actual_pts_ms for r in results for f in r.inputs.frames))
+    return {
+        "version": "extractive-timeline-v1",
+        "asset_id": first.asset_id,
+        "analysis_id": first.analysis_id,
+        "observation_count": len(unique),
+        "entries": [
+            o.model_dump(include={"observation_id", "kind", "text", "evidence_ids", "time_range"})
+            for o in ordered
+        ],
+        "visual_coverage_gaps": [g.model_dump() for g in gaps],
+    }
+
+
 def fuse_window(
     inputs: WindowInputs,
     candidates: list[Observation],

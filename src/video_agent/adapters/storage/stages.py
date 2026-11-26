@@ -36,7 +36,7 @@ def invalidate_index(conn: sqlite3.Connection, asset_id: str, analysis_id: str) 
     )
     conn.execute(
         "UPDATE stage_results SET status='invalidated' WHERE analysis_id=? AND asset_id=? "
-        "AND stage='index' AND status='committed'",
+        "AND stage IN ('index','summarize') AND status='committed'",
         (analysis_id, asset_id),
     )
 
@@ -110,6 +110,19 @@ class StageCache:
         ):
             raise StorageError(ErrorCode.STORAGE_ERROR, "stage dependency failed integrity check")
         return str(row[1])
+
+    def prepare_export(self, asset: str, previous: str | None, raw: bytes, digest: str) -> str:
+        with closing(connect_sqlite(self._db)) as conn:
+            if previous is not None:
+                try:
+                    if self._verified_hash(conn, asset, previous, export=True) == digest:
+                        return previous
+                except OSError, StorageError:
+                    pass
+            aid = self._files.put_bytes(asset, "export", raw, suffix=".json")
+            if self._verified_hash(conn, asset, aid, export=True) != digest:
+                raise StorageError(ErrorCode.STORAGE_ERROR, "export failed verification")
+            return aid
 
     def load(self, asset_id: str, analysis_id: str, item: str, key: str) -> WindowResult | None:
         owner = (analysis_id, asset_id, item)

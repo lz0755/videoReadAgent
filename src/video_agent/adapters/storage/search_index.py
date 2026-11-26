@@ -1,5 +1,7 @@
 """Atomic publication of a search index from the complete set of committed windows."""
 
+import hashlib
+import json
 import sqlite3
 from contextlib import closing
 from dataclasses import astuple
@@ -8,6 +10,7 @@ from pathlib import Path
 
 from video_agent.adapters.storage.connection import connect_sqlite, immediate_transaction
 from video_agent.application.indexing import DOCUMENT_VERSION, SearchDocument, documents_for
+from video_agent.application.observations import timeline_summary
 from video_agent.application.prompt_registry import canonical_json_sha256
 from video_agent.application.stages import WindowStages
 from video_agent.domain.errors import ErrorCode, StorageError
@@ -51,10 +54,12 @@ class SQLiteSearchIndex:
                     ErrorCode.INDEX_NOT_READY, "complete committed window set required"
                 )
             docs: dict[str, SearchDocument] = {}
+            results = []
             for item, key in sorted(windows.items()):
                 result = self._stages.load(asset_id, analysis_id, item, key)
                 if result is None:
                     raise StorageError(ErrorCode.INDEX_NOT_READY, "window could not be verified")
+                results.append(result)
                 for doc in documents_for(result):
                     doc_id = canonical_json_sha256(
                         [analysis_id, asset_id, doc.source_kind, doc.source_id]
@@ -68,6 +73,19 @@ class SQLiteSearchIndex:
                 raise StorageError(ErrorCode.INDEX_NOT_READY, "no evidence documents to publish")
             key_hash = canonical_json_sha256([version, expected])
             checksum = canonical_json_sha256([(k, astuple(v)) for k, v in sorted(docs.items())])
+            summary = timeline_summary(results)
+            raw = json.dumps(
+                summary, sort_keys=True, ensure_ascii=False, separators=(",", ":")
+            ).encode()
+            digest = hashlib.sha256(raw).hexdigest()
+            summary_key = canonical_json_sha256([summary["version"], expected])
+            read_summary = (
+                "SELECT config_hash,artifact_id,checksum FROM stage_results "
+                "WHERE analysis_id=? AND asset_id=? AND stage='summarize' AND item_key='all' AND status='committed'"
+            )
+            old_summary = conn.execute(read_summary, scope).fetchone()
+            existing = old_summary[1] if old_summary and old_summary[0] == summary_key else None
+            aid = self._stages.prepare_export(asset_id, existing, raw, digest)
             with immediate_transaction(conn):
                 job = conn.execute(
                     "SELECT cancel_requested,status FROM jobs WHERE analysis_id=? AND asset_id=? "
@@ -90,6 +108,14 @@ class SQLiteSearchIndex:
                     conn, scope, docs, version
                 ):
                     self._replace(conn, scope, docs, version, key_hash, checksum)
+                if conn.execute(read_summary, scope).fetchone() != (summary_key, aid, digest):
+                    conn.execute(
+                        """INSERT INTO stage_results(analysis_id,asset_id,stage,item_key,config_hash,
+                             artifact_id,checksum,status,created_at) VALUES(?,?,'summarize','all',?,?,?,'committed',?)
+                             ON CONFLICT(analysis_id,stage,item_key) DO UPDATE SET config_hash=excluded.config_hash,
+                             artifact_id=excluded.artifact_id,checksum=excluded.checksum,status='committed',created_at=excluded.created_at""",
+                        (*scope, summary_key, aid, digest, datetime.now(UTC).isoformat()),
+                    )
                 state = "partial" if partial else "succeeded"
                 conn.execute(
                     "UPDATE analysis_runs SET index_state='ready',status=? "
