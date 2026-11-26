@@ -1,5 +1,5 @@
 # PR-M1.5.3 交接
-- PR 待审核。M1.5-A2 的 12 题人工评分已完成，可答题 4/9，未达 7/9 门槛。[最新验收记录](#2026-11-26-openai-live-验收)
+- 首轮 M1.5-A2 的 12 题人工评分已完成，可答题 4/9，门槛为 7/9。[首轮验收记录](#2026-11-26-openai-live-验收) · [第二轮修复和复测](PR-M1.5-A2-retest.md)
 - 前置交接链接：`docs/handoff/PR-M1.5.1.md`、`docs/handoff/PR-M1.5.2.md`、`docs/handoff/PR-M0.3.md`、`docs/decisions/ADR-001.md`
 - 基线 commit、Step A commit 与测试 diff hash：基线 `a283f04`（承接 M1.5.1–M1.5.2；未执行 git commit）；Step A 冻结测试文件 SHA-256（Step B 全程零改动）：
   - `tests/unit/test_slice_report.py`: `A7C6470C88AE1C29FCBBAAC28DD1FCF4BCDC2F150EACD0A4DEE7B9DA274A9D68`

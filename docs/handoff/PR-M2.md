@@ -46,4 +46,16 @@ uv run --no-sync pytest -q -m model_local tests/integration/test_asr_local.py --
 
 以上命令均退出 0。默认离线套件 **278 passed，1 deselected**，其中包括 7 项 AST 架构测试。mypy 检查 92 个源文件，import-linter 两项合同通过。另行执行的 `model_local` 为 **1 passed**，使用已下载的 small 权重，目标语句实测 39.46–42.02 秒；模型在前段静音中还产生了一个无关短词。修改过的 `eval/` 也通过 Ruff 检查和格式检查。
 
-本次验证覆盖 Windows 宿主。Docker 客户端查询本地引擎时缺少命名管道，`docker version --format '{{.Server.Version}}'` 退出 1，未执行操作系统级 `--network none` 验收。GPU、浏览器播放映射、付费质量复测和 M5 崩溃恢复均未运行。
+### 补充验收 · 操作系统级断网
+
+已在本机启动 Docker Desktop。初次用 `e86ea869a9fd` 的干净镜像验收，Python 与 curl 均被系统阻断，默认套件 262 项通过、7 项失败、9 项设置错误。13 项测试依赖未随仓库分发的 D0 文件，另 3 项在 FFmpeg 7.1.5 下生成的合成视频缺少正确包时长。补充的自检媒体使用独立清单和真实文件哈希，本机已置备 D0 时还会执行原三段视频的十二题验收。三项时间轴测试继续断言原来的 PTS 和边界。[干净检出回归](PR-M2-CI.md) · [跨版本 PTS 夹具](PR-M2.2-ci.md)
+
+代码提交 `917980b88393` 经重新构建和完整复测。镜像只使用 129 个受控文件。运行时 `docker inspect` 记录网络模式为 `none`、宿主挂载数为 0。Python 独立进程和原生 curl 对外连接均被阻断，离线 doctor 通过。完整构建与运行命令、镜像和日志 SHA-256 随验收记录保存。[断网验收记录](../../data/reports/m2_os_gate/917980b88393/acceptance.json)
+
+| 环境 | 实测结果 |
+| --- | --- |
+| Linux，CPython 3.14.10，FFmpeg 7.1.5 | 默认套件 **289 passed，1 deselected**，67.95 秒，容器退出 0。 |
+| Windows，CPython 3.14.6，FFmpeg 8.1.2 | 默认套件 **290 passed，1 deselected**，93.84 秒，比干净镜像多一项授权 D0 运行。独立 `model_local` 真实 ASR 测试 **1 passed**。 |
+| 静态和架构检查 | Ruff 与格式检查通过。含 `eval` 的 mypy 检查 98 个源文件，两项 import-linter 合同通过，离线锁文件检查通过。 |
+
+M1.5 的付费复测使用单独授权和评分报告。[质量复测交接](PR-M1.5-A2-retest.md)
