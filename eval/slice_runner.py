@@ -905,7 +905,7 @@ def run_slice_manifest(
     return report
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv: list[str] | None = None, *, repo_root: Path | None = None) -> int:
     """CLI entrypoint for `python -m eval.slice_runner`."""
     parser = argparse.ArgumentParser(
         description="Run the M1.5 development vertical slice and evaluate diagnostic gates."
