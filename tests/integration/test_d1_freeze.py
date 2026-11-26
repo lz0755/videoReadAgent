@@ -45,7 +45,7 @@ def _proofs(path: Path, root: Path) -> list[dict[str, Any]]:
     with av.open(str(path)) as video:
         for i, f in enumerate(video.decode(video=0)):
             assert f.pts is not None and f.time_base is not None
-            tb = Fraction(f.time_base)
+            tb = Fraction(f.time_base.numerator, f.time_base.denominator)
             png = f"{path.stem}-frame{i}.png"
             f.to_image().save(root / png)  # type: ignore[no-untyped-call]
             frames.append(
@@ -88,8 +88,8 @@ def packet_fixture(
         check=True,
     )
     videos = []
-    seed = []
-    supplement = []
+    seed: list[dict[str, Any]] = []
+    supplement: list[dict[str, Any]] = []
     groups = {}
     events = []
     requests = []
