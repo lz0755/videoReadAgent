@@ -36,3 +36,13 @@ uv run --no-sync python -m eval.slice_runner --manifest eval/manifests/slice.jso
 ```powershell
 .\.venv\Scripts\python.exe data/reports/m1_5_openai_r2/review.py --score
 ```
+
+## 实际执行
+
+运行 `64ca4733ebd14036ac8a19e87e249b5a` 完成前两段的 8 题。第三段的受管帧和 WAV 已落盘，本地 ASR 在默认 120 秒截止时退出，错误码为 `DEADLINE_EXCEEDED`。该段分析账本为零次云请求、零图像，四题均为 `not_run`，原始报告保存在本轮目录及其 `failed_runs` 快照，诊断为 `pause`。
+
+OpenAI 访问预检返回 HTTP 200。已完成部分有 14 个不同的响应 ID，发送 22 图，输入 68,785 tokens，输出 4,002 tokens，估算 0.0088795 美元，未知费用事件为 0。独立核验了 44 个登记产物和 10 次答案引用，SQLite 外键检查为零项错误。界面三题均引用 2502 ms 的真实帧。第 02 题只回答了动作起点。[本轮原始报告](../../data/reports/m1_5_openai_r2/slice_live_report.json) · [独立核验](../../data/reports/m1_5_openai_r2/acceptance_audit.json)
+
+使用原来的 960,000 个 PCM 样本、同一模型权重与转写配置在本机重做第三段 ASR，耗时 96.151 秒，得到 21 段，边界均在 [0, 60000) ms 视频范围内，末段结束于 58240 ms。新建正式适配器复读时逐项命中同一缓存。单独对最后四题的离线演练计入 7 次模拟推理、12 图。真实云端补测与人工裁定分别记录。[本地 ASR 核验](../../data/reports/m1_5_openai_r2/local_asr_precompute_audit.json) · [剩余四题演练](../../data/reports/m1_5_openai_r2/rehearsal/remaining/slice_offline_report.json)
+
+独立代理逐题预审了已回答部分，建议第 01、03、05、06、07 题正确，第 02 题错误，第 04、08 题拒答恰当。原始报告仍保留第 09–12 题的执行缺口，正式人工评分沿用已签核的历史记录。[本轮八题与待补题的逐项对照](../../data/reports/m1_5_openai_r2/manual_review.md)
