@@ -26,7 +26,9 @@ from video_agent.adapters.llm.deepseek import (
 )
 from video_agent.adapters.llm.fake import FakePlannerProvider, FakeVisionProvider
 from video_agent.adapters.llm.openai_slice import OPENAI_MODEL_ID
+from video_agent.adapters.media.probe import probe_managed
 from video_agent.adapters.media.thin_media import LocalArtifactStore, PyAVMediaBackend
+from video_agent.adapters.storage.filesystem import ManagedSourceStore
 from video_agent.adapters.storage.memory_budget import InMemoryBudgetStore
 from video_agent.application.budget import (
     BudgetedPlannerProvider,
@@ -49,10 +51,20 @@ from video_agent.domain.ports import (
 
 
 def build_asset_importer(
-    data_root: Path, config: AppConfig, *, quota_bytes: int | None = None,
+    data_root: Path,
+    config: AppConfig,
+    *,
+    quota_bytes: int | None = None,
     progress: Callable[[int], None] | None = None,
 ) -> AssetImporter:
-    raise NotImplementedError
+    store = ManagedSourceStore(
+        data_root,
+        max_bytes=config.media.max_file_bytes,
+        chunk_bytes=config.ingest.copy_chunk_bytes,
+        quota_bytes=quota_bytes,
+        progress=progress,
+    )
+    return AssetImporter(store, probe_managed, config.media.max_duration_ms)
 
 
 class SystemClock:

@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
+from video_agent.domain.errors import ErrorCode, MediaError
 from video_agent.domain.models import VideoAsset
 
 
@@ -25,10 +26,21 @@ class ImportStore(Protocol):
 
 class AssetImporter:
     def __init__(
-        self, store: ImportStore, probe: Callable[[StagedSource, str, str], VideoAsset],
+        self,
+        store: ImportStore,
+        probe: Callable[[StagedSource, str, str], VideoAsset],
         max_duration_ms: int,
     ) -> None:
-        pass
+        self._store = store
+        self._probe = probe
+        self._max_duration_ms = max_duration_ms
 
     def import_file(self, source_path: Path, *, asset_id: str, authorization: str) -> VideoAsset:
-        raise NotImplementedError
+        if not authorization.strip():
+            raise MediaError(ErrorCode.STORAGE_ERROR, "a local authorization record is required")
+        with self._store.stage(source_path, asset_id) as staged:
+            asset = self._probe(staged, asset_id, source_path.name)
+            if asset.duration_ms > self._max_duration_ms:
+                raise MediaError(ErrorCode.MEDIA_LIMIT_EXCEEDED, "video exceeds duration limit")
+            self._store.publish(staged, asset, authorization)
+        return asset

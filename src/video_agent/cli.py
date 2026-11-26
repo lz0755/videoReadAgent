@@ -20,8 +20,9 @@ import yaml
 from pydantic import ValidationError
 
 from video_agent.application.slice import SliceQuestionSpec, VerticalSliceResult, run_vertical_slice
-from video_agent.bootstrap import build_slice_container
+from video_agent.bootstrap import build_asset_importer, build_slice_container, load_app_config
 from video_agent.domain.config import AppConfig
+from video_agent.domain.errors import VideoAgentError
 
 
 @dataclass(frozen=True, slots=True)
@@ -270,6 +271,21 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
+    assets = subparsers.add_parser("assets", help="Manage user-selected local video files")
+    imports = assets.add_subparsers(dest="asset_command", required=True).add_parser(
+        "import", help="Register an authorized file and retain a managed copy"
+    )
+    imports.add_argument("path", type=Path)
+    imports.add_argument("--data-root", type=Path, default=Path("data"))
+    imports.add_argument("--config", type=Path, default=Path("config/defaults.yaml"))
+    imports.add_argument(
+        "--authorization",
+        default="local CLI user selection",
+        help="Local authorization record or reference for this source",
+    )
+    imports.add_argument("--quota-bytes", type=int, help="Limit combined managed artifact bytes")
+    imports.add_argument("--json", action="store_true")
+
     doctor_parser = subparsers.add_parser(
         "doctor",
         help="Check local offline runtime prerequisites without making network calls",
@@ -372,6 +388,23 @@ def main(argv: Sequence[str] | None = None) -> int:
     """CLI entrypoint."""
     parser = _build_parser()
     args = parser.parse_args(list(argv) if argv is not None else None)
+
+    if args.command == "assets":
+        try:
+            importer = build_asset_importer(
+                args.data_root, load_app_config(args.config), quota_bytes=args.quota_bytes
+            )
+            asset = importer.import_file(
+                args.path, asset_id="asset_" + uuid.uuid4().hex, authorization=args.authorization
+            )
+        except VideoAgentError as exc:
+            if args.json:
+                print(json.dumps({"error": exc.code.value, "message": exc.message}))
+            else:
+                print(str(exc), file=sys.stderr)
+            return 1
+        print(asset.model_dump_json() if args.json else asset.asset_id)
+        return 0
 
     if args.command == "doctor":
         report = run_doctor(config_path=args.config, data_root=args.data_root)
