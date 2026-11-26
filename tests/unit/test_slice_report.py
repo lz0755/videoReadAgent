@@ -21,6 +21,7 @@ from eval.slice_runner import (
 from eval.slice_runner import (
     main as runner_main,
 )
+from tests.fixtures.slice_dataset import SliceDataset, installed_slice_cases
 from video_agent.domain.errors import ErrorCode, ProviderError
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -230,18 +231,19 @@ def test_slice_diagnostic_gate_thresholds_and_failure_retention() -> None:
 def test_live_runner_requires_budget_consent_and_key_with_no_fake_fallback(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    synthetic_slice: SliceDataset,
 ) -> None:
     monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
 
     # Missing budget_config / output_dir -> rejected.
     with pytest.raises(SliceReportError):
         run_slice_manifest(
-            manifest_path=SLICE_MANIFEST_PATH,
+            manifest_path=synthetic_slice.manifest,
             mode="live",
             data_root=tmp_path / "work",
             output_dir=None,
             budget_config_path=None,
-            repo_root=REPO_ROOT,
+            repo_root=synthetic_slice.root,
         )
 
     # Budget config with cloud_egress_authorized: false -> CLOUD_DISABLED.
@@ -252,12 +254,12 @@ def test_live_runner_requires_budget_consent_and_key_with_no_fake_fallback(
     )
     with pytest.raises(ProviderError) as disabled_exc:
         run_slice_manifest(
-            manifest_path=SLICE_MANIFEST_PATH,
+            manifest_path=synthetic_slice.manifest,
             mode="live",
             data_root=tmp_path / "work",
             output_dir=tmp_path / "out",
             budget_config_path=disabled_cfg,
-            repo_root=REPO_ROOT,
+            repo_root=synthetic_slice.root,
         )
     assert disabled_exc.value.code is ErrorCode.CLOUD_DISABLED
 
@@ -269,31 +271,40 @@ def test_live_runner_requires_budget_consent_and_key_with_no_fake_fallback(
     )
     with pytest.raises(ProviderError) as key_exc:
         run_slice_manifest(
-            manifest_path=SLICE_MANIFEST_PATH,
+            manifest_path=synthetic_slice.manifest,
             mode="live",
             data_root=tmp_path / "work",
             output_dir=tmp_path / "out",
             budget_config_path=auth_cfg,
-            repo_root=REPO_ROOT,
+            repo_root=synthetic_slice.root,
         )
     assert key_exc.value.code is ErrorCode.CREDENTIAL_MISSING
 
 
-def test_offline_slice_runner_cli_executes_real_dev_slice_and_sanitizes_report(
+@pytest.mark.parametrize("source_case", installed_slice_cases())
+def test_offline_slice_runner_cli_executes_pinned_slice_and_sanitizes_report(
     tmp_path: Path,
+    source_case: str,
+    synthetic_slice: SliceDataset,
 ) -> None:
+    dataset = (
+        synthetic_slice
+        if source_case == "synthetic"
+        else SliceDataset(REPO_ROOT, SLICE_MANIFEST_PATH)
+    )
     out_dir = tmp_path / "slice_reports"
     work_dir = tmp_path / "slice_work"
     exit_code = runner_main(
         [
             "--manifest",
-            str(SLICE_MANIFEST_PATH),
+            str(dataset.manifest),
             "--offline",
             "--output-dir",
             str(out_dir),
             "--data-root",
             str(work_dir),
-        ]
+        ],
+        repo_root=dataset.root if source_case == "synthetic" else None,
     )
     assert exit_code == 0
 
@@ -308,6 +319,12 @@ def test_offline_slice_runner_cli_executes_real_dev_slice_and_sanitizes_report(
     assert report["is_live_quality_evidence"] is False
     assert len(report["videos"]) == 3
     assert len(report["questions"]) == 12
+    entries = load_slice_manifest(dataset.manifest)
+    for key in ("video_id", "sha256", "benchmark"):
+        assert [v[key] for v in report["videos"]] == [e[key] for e in entries]
+    assert [q["question_id"] for q in report["questions"]] == [
+        qid for e in entries for qid in e["question_ids"]
+    ]
     assert report["diagnostic_gate"]["can_claim_model_quality"] is False
     assert report["diagnostic_gate"]["citation_validity_rate"] == 1.0
     assert report["diagnostic_gate"]["decision"] == "pause"

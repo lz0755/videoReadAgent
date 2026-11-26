@@ -7,8 +7,8 @@ from typing import Any
 import pytest
 
 from eval import slice_runner
-from eval.manifest import load_dev_seed_annotations
 from tests.fixtures.media_factory import generate_f01_cfr, self_check_f01_cfr
+from tests.fixtures.slice_dataset import SliceDataset
 from video_agent import cli
 from video_agent.adapters.llm.fake import FakePlannerProvider
 from video_agent.bootstrap import SliceContainer, build_slice_container
@@ -45,16 +45,9 @@ def test_cli_retains_successes_and_failed_candidates_in_question_order(
 def test_rerun_keeps_failed_report_and_pins_separate_analysis_evidence(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    synthetic_slice: SliceDataset,
 ) -> None:
-    root = Path(__file__).resolve().parents[2]
-    entry = slice_runner.load_slice_manifest(root / "eval/manifests/slice.jsonl")[0]
-    annotations = load_dev_seed_annotations(root / entry["annotations_path"])
-    groups = slice_runner.validate_slice_manifest(
-        [entry], annotations, repo_root=root, verify_files_on_disk=True
-    )
-    assert len(groups[entry["video_id"]]) == 4
-    manifest = tmp_path / "slice.jsonl"
-    manifest.write_text(json.dumps(entry) + "\n", encoding="utf-8")
+    dataset = synthetic_slice.subset(1, tmp_path)
     planner = FakePlannerProvider(scenarios=("normal", "fabricated_citation", "normal"))
 
     def compose(**kwargs: Any) -> SliceContainer:
@@ -66,7 +59,7 @@ def test_rerun_keeps_failed_report_and_pins_separate_analysis_evidence(
     argv = [
         "--offline",
         "--manifest",
-        str(manifest),
+        str(dataset.manifest),
         "--output-dir",
         str(out),
         "--data-root",
@@ -74,11 +67,11 @@ def test_rerun_keeps_failed_report_and_pins_separate_analysis_evidence(
         "--max-frames",
         "1",
     ]
-    assert slice_runner.main(argv) != 0
+    assert slice_runner.main(argv, repo_root=dataset.root) != 0
     latest = out / "slice_offline_report.json"
     failed_bytes = latest.read_bytes()
     first = json.loads(failed_bytes)
-    assert slice_runner.main(argv) == 0
+    assert slice_runner.main(argv, repo_root=dataset.root) == 0
     second = json.loads(latest.read_bytes())
     assert (out / "failed_runs" / first["run_id"] / latest.name).read_bytes() == failed_bytes
     assert first["run_id"] != second["run_id"]

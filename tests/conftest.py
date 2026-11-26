@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import pytest
 
+pytest_plugins = ["tests.fixtures.slice_dataset"]
+
 
 def pytest_configure(config: pytest.Config) -> None:
     """Ensure live/local-model markers are always registered even when invoked standalone."""

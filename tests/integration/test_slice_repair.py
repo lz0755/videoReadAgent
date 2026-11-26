@@ -8,8 +8,8 @@ import pytest
 import yaml
 
 from eval import slice_runner
-from eval.manifest import load_dev_seed_annotations
 from tests.fixtures.media_factory import generate_f01_cfr, self_check_f01_cfr
+from tests.fixtures.slice_dataset import SliceDataset
 from tests.unit.test_budget_guard import FakeClock
 from video_agent.adapters.llm.fake import FakePlannerProvider, FakeVisionProvider
 from video_agent.bootstrap import SliceContainer, build_slice_container
@@ -18,23 +18,10 @@ from video_agent.domain.errors import ErrorCode, ProviderError
 from video_agent.domain.models import FrameEvidence, Observation, TranscriptSegment
 from video_agent.domain.ports import SearchHit, VisionRequest, VisionResponse
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-
 
 @pytest.fixture
-def manifest(tmp_path: Path) -> Path:
-    entries = slice_runner.load_slice_manifest(REPO_ROOT / "eval/manifests/slice.jsonl")[:2]
-    annotations = load_dev_seed_annotations(REPO_ROOT / entries[0]["annotations_path"])
-    grouped = slice_runner.validate_slice_manifest(
-        entries,
-        annotations,
-        repo_root=REPO_ROOT,
-        verify_files_on_disk=True,
-    )
-    assert [len(grouped[e["video_id"]]) for e in entries] == [4, 4]
-    path = tmp_path / "slice.jsonl"
-    path.write_text("".join(json.dumps(e) + "\n" for e in entries), encoding="utf-8")
-    return path
+def manifest(tmp_path: Path, synthetic_slice: SliceDataset) -> SliceDataset:
+    return synthetic_slice.subset(2, tmp_path)
 
 
 def inject_ports(
@@ -55,10 +42,12 @@ def inject_ports(
     monkeypatch.setattr(slice_runner, "build_slice_container", compose)
 
 
-def run_report(tmp_path: Path, manifest: Path, budget: Path | None = None) -> tuple[int, Any]:
+def run_report(
+    tmp_path: Path, manifest: SliceDataset, budget: Path | None = None
+) -> tuple[int, Any]:
     argv = [
         "--manifest",
-        str(manifest),
+        str(manifest.manifest),
         "--offline",
         "--data-root",
         str(tmp_path / "work"),
@@ -69,7 +58,7 @@ def run_report(tmp_path: Path, manifest: Path, budget: Path | None = None) -> tu
     ]
     if budget is not None:
         argv.extend(["--budget-config", str(budget)])
-    status = slice_runner.main(argv)
+    status = slice_runner.main(argv, repo_root=manifest.root)
     return status, json.loads(
         (tmp_path / "report" / "slice_offline_report.json").read_text(encoding="utf-8")
     )
@@ -93,13 +82,17 @@ def budget_file(tmp_path: Path, **limits: Any) -> Path:
 
 def test_second_qa_failure_preserves_prior_and_later_pinned_results(
     tmp_path: Path,
-    manifest: Path,
+    manifest: SliceDataset,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     planner = FakePlannerProvider(scenarios=("normal", "fabricated_citation", "normal"))
     inject_ports(monkeypatch, FakeVisionProvider(), planner)
     status, report = run_report(tmp_path, manifest)
-    pinned = [qid for e in slice_runner.load_slice_manifest(manifest) for qid in e["question_ids"]]
+    pinned = [
+        qid
+        for e in slice_runner.load_slice_manifest(manifest.manifest)
+        for qid in e["question_ids"]
+    ]
     rows = report["questions"]
     assert status != 0
     assert [q["question_id"] for q in rows] == pinned
@@ -118,7 +111,7 @@ def test_second_qa_failure_preserves_prior_and_later_pinned_results(
 @pytest.mark.parametrize("role", ["vision", "planner"])
 def test_unknown_paid_attempt_keeps_its_reservation_and_all_question_outcomes(
     tmp_path: Path,
-    manifest: Path,
+    manifest: SliceDataset,
     monkeypatch: pytest.MonkeyPatch,
     role: str,
 ) -> None:
@@ -158,7 +151,7 @@ def test_unknown_paid_attempt_keeps_its_reservation_and_all_question_outcomes(
 )
 def test_numeric_approval_applies_before_dispatch_across_questions_and_videos(
     tmp_path: Path,
-    manifest: Path,
+    manifest: SliceDataset,
     monkeypatch: pytest.MonkeyPatch,
     limits: dict[str, Any],
     vision_calls: int,
@@ -177,7 +170,7 @@ def test_numeric_approval_applies_before_dispatch_across_questions_and_videos(
 
 def test_new_qa_scope_does_not_restart_approved_deadline(
     tmp_path: Path,
-    manifest: Path,
+    manifest: SliceDataset,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     clock = FakeClock()
@@ -203,19 +196,19 @@ def test_new_qa_scope_does_not_restart_approved_deadline(
 
 def test_invalid_numeric_budget_rejected_before_any_model_call(
     tmp_path: Path,
-    manifest: Path,
+    manifest: SliceDataset,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     vision, planner = FakeVisionProvider(), FakePlannerProvider()
     inject_ports(monkeypatch, vision, planner)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="max_model_attempts"):
         run_report(tmp_path, manifest, budget_file(tmp_path, max_model_attempts=True))
     assert not vision.calls and not planner.calls
 
 
 def test_textual_consent_is_rejected_at_preflight_without_credentials(
     tmp_path: Path,
-    manifest: Path,
+    manifest: SliceDataset,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
@@ -225,7 +218,8 @@ def test_textual_consent_is_rejected_at_preflight_without_credentials(
     path.write_text(yaml.safe_dump(config), encoding="utf-8")
     with pytest.raises((ValueError, ProviderError)) as exc:
         slice_runner.run_slice_manifest(
-            manifest_path=manifest,
+            manifest_path=manifest.manifest,
+            repo_root=manifest.root,
             mode="live",
             data_root=tmp_path / "work",
             output_dir=tmp_path / "out",
@@ -233,6 +227,8 @@ def test_textual_consent_is_rejected_at_preflight_without_credentials(
         )
     if isinstance(exc.value, ProviderError):
         assert exc.value.code is ErrorCode.CLOUD_DISABLED
+    else:
+        assert "authorization flags" in str(exc.value)
 
 
 def test_cli_evidence_can_be_reopened_and_resolved_after_exit(

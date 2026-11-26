@@ -11,6 +11,7 @@ import pytest
 import yaml
 
 from eval import slice_runner
+from tests.fixtures.slice_dataset import SliceDataset
 from video_agent.bootstrap import build_slice_container
 from video_agent.cli import main as cli_main
 from video_agent.domain.errors import ErrorCode, ProviderError
@@ -41,14 +42,29 @@ def app_config(tmp_path: Path, provider: str, model: str, key_env: str) -> Path:
 
 @pytest.mark.parametrize("entry_point", ["manifest", "single"])
 def test_openai_cli_requires_its_own_key(
-    tmp_path: Path, approval: Path, monkeypatch: pytest.MonkeyPatch, entry_point: str
+    tmp_path: Path,
+    approval: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    entry_point: str,
+    synthetic_slice: SliceDataset,
 ) -> None:
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.setenv("DEEPSEEK_API_KEY", "offline-deepseek-fixture")
     args = ["--live", "--provider", "openai", "--budget-config", str(approval)]
     with pytest.raises(ProviderError) as caught:
         if entry_point == "manifest":
-            slice_runner.main([*args, "--output-dir", str(tmp_path), "--data-root", str(tmp_path)])
+            slice_runner.main(
+                [
+                    *args,
+                    "--manifest",
+                    str(synthetic_slice.manifest),
+                    "--output-dir",
+                    str(tmp_path),
+                    "--data-root",
+                    str(tmp_path),
+                ],
+                repo_root=synthetic_slice.root,
+            )
         else:
             cli_main(
                 [
