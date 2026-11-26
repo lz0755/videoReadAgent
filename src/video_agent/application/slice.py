@@ -5,9 +5,11 @@ Depends exclusively on domain contracts, policies, pure tokenizer, and injected 
 
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC
 from decimal import Decimal
@@ -145,6 +147,7 @@ async def extract_slice_media(
     sample_interval_ms: int = 5000,
     max_frames: int = 16,
     language: str | None = None,
+    remaining_asr_seconds: Callable[[], float] | None = None,
 ) -> SliceMediaResult:
     """Run real file -> PyAV frames + FFmpeg audio + Transcriber chain via ports."""
     asset = media_backend.probe_video(source_path, asset_id=asset_id)
@@ -195,7 +198,19 @@ async def extract_slice_media(
         language=language,
         vad_filter=False,
     )
-    asr_response = await transcriber.transcribe(asr_request)
+    if remaining_asr_seconds is None:
+        asr_response = await transcriber.transcribe(asr_request)
+    else:
+        timeout = asyncio.timeout(remaining_asr_seconds())
+        try:
+            async with timeout:
+                asr_response = await transcriber.transcribe(asr_request)
+        except TimeoutError as exc:
+            if not timeout.expired():
+                raise
+            raise MediaError(ErrorCode.DEADLINE_EXCEEDED, "local ASR deadline elapsed") from exc
+        # A synchronous cache hit or CPU stage can finish without yielding to the timer.
+        remaining_asr_seconds()
     audio_status: AudioExtractionStatus = "ok" if asr_response.segments else "no_speech"
     if audio_status == "no_speech":
         warnings.append("no_speech_detected: audio stream contained no transcribed segments")
@@ -734,6 +749,11 @@ async def run_vertical_slice(
         sample_interval_ms=sample_interval_ms,
         max_frames=max_frames,
         language=language,
+        remaining_asr_seconds=(
+            (lambda: budget_guard.remaining_seconds(analysis_id))
+            if provider_mode == "live"
+            else None
+        ),
     )
 
     evidence_by_id: dict[str, FrameEvidence | TranscriptSegment] = {}

@@ -418,6 +418,7 @@ def build_slice_container(
             supervised = FasterWhisperTranscriber(
                 artifact_store,
                 model_path=asr_model_path,
+                timeout_seconds=config.analysis.deadline_seconds,
                 duration_for_asset=source_store.duration_for_asset,
             )
             previous_digest: str | None = None

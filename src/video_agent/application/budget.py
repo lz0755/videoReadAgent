@@ -211,6 +211,11 @@ class BudgetGuard:
             )
         return remaining
 
+    def remaining_seconds(self, scope_id: str) -> float:
+        """Read the active scope/run time left without reserving a provider attempt."""
+        with self._lock:
+            return self._check_active_locked(self._load_account_locked(scope_id))
+
     def cancel(self, scope_id: str) -> BudgetAccount:
         """Mark scope cancelled so no further external calls or tool executions may start."""
         with self._lock:
