@@ -118,7 +118,21 @@ class ProviderExecutor:
                 if exc.code in (ErrorCode.PROVIDER_TIMEOUT, ErrorCode.EXTERNAL_RESULT_UNKNOWN):
                     guard.settle_unknown(reserved, error_code=exc.code)
                     raise
-                guard.settle_failed(reserved, error_code=exc.code)
+                receipt = exc.details.get("provider_request_id")
+                inputs = exc.details.get("input_tokens")
+                outputs = exc.details.get("output_tokens")
+                guard.settle_failed(
+                    reserved,
+                    error_code=exc.code,
+                    provider_request_id=receipt if isinstance(receipt, str) else None,
+                    input_tokens=inputs if type(inputs) is int else None,
+                    output_tokens=outputs if type(outputs) is int else None,
+                    missing_usage=exc.details.get("cost_status") == "unknown",
+                    confirmed_cost_usd=0.0
+                    if exc.details.get("cost_status") == "confirmed"
+                    and reserved.reserved_cost_usd == 0
+                    else None,
+                )
                 if should_retry_transient(
                     exc.code,
                     transient_retries_used=retries,

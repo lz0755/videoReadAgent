@@ -774,12 +774,17 @@ class BudgetGuard:
         error_code: ErrorCode,
         confirmed_cost_usd: float | None = None,
         provider_request_id: str | None = None,
+        input_tokens: int | None = None,
+        output_tokens: int | None = None,
+        missing_usage: bool = False,
     ) -> None:
         """Settle a sent attempt that returned an explicit provider error (attempt/images spent)."""
         with self._atomic():
             if self._already_settled(
                 reservation,
                 "failed",
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
                 error_code=error_code.value,
                 confirmed_cost_usd=confirmed_cost_usd,
                 provider_request_id=provider_request_id,
@@ -790,14 +795,19 @@ class BudgetGuard:
             account = self._load_account_locked(active.scope_id)
             updated_reserved = self._release_reserved_counters(account.reserved, active)
 
+            cost_status: CostStatus = "unknown" if missing_usage else "estimated"
+            est_cost = active.reserved_cost_usd
+            conf_cost = confirmed_cost_usd
             if confirmed_cost_usd is not None:
-                cost_status: CostStatus = "confirmed"
+                cost_status = "confirmed"
                 est_cost = confirmed_cost_usd
-                conf_cost: float | None = confirmed_cost_usd
-            else:
-                cost_status = "estimated"
-                est_cost = active.reserved_cost_usd
-                conf_cost = None
+            elif not missing_usage and input_tokens is not None and output_tokens is not None:
+                est_cost = estimate_cost_usd(
+                    self._prices,
+                    active.model_id,
+                    input_tokens=input_tokens,
+                    output_tokens=output_tokens,
+                )
 
             updated_consumed = account.consumed.model_copy(
                 update={
@@ -822,6 +832,8 @@ class BudgetGuard:
                 provider=active.provider,
                 model_id=active.model_id,
                 status="failed",
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
                 reserved_images=active.reserved_images,
                 images_sent=attempt.chargeable_images,
                 estimated_cost_usd=est_cost,

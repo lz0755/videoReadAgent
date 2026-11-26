@@ -58,7 +58,14 @@ class StrictVisionProvider:
                         raise ValueError("candidate differs from response")
         except (ValidationError, ValueError) as exc:
             raise ProviderError(
-                ErrorCode.SCHEMA_VALIDATION_FAILED, "invalid vision response schema"
+                ErrorCode.SCHEMA_VALIDATION_FAILED,
+                "invalid vision response schema",
+                details={
+                    "provider_request_id": result.provider_request_id,
+                    "cost_status": result.cost_status,
+                    "input_tokens": result.input_tokens,
+                    "output_tokens": result.output_tokens,
+                },
             ) from exc
         return result
 
