@@ -1,5 +1,7 @@
 # M1.5-A2 开发切片复测
 
+**联合人工签核通过。** 用户逐题确认了原 12 题。可答题 7/9 正确，达到 7/9 门槛，3/3 道不可答题恰当拒答，19/19 次引用有效。评分器返回 `quality_gate_passed=true`、`decision=continue`，待判定与未完成题数均为 0。[正式评分](../../data/reports/m1_5_openai_r2/joint/slice_live_reviewed.json) · [逐题人工签核](../../data/reports/m1_5_openai_r2/joint/manual_judgments.json)
+
 第一轮经人工确认，可答题为 4/9，恰当拒答为 3/3，引用合法为 9/9。复测沿用原 3 段 D0、12 道问题、可答性和 7/9 门槛。两轮使用独立的输出目录、运行 ID、分析 ID 和人工判定记录。[首轮评分](../../data/reports/m1_5_openai_live/slice_live_reviewed.json)
 
 ## 五道失分题
@@ -45,7 +47,7 @@ OpenAI 访问预检返回 HTTP 200。已完成部分有 14 个不同的响应 ID
 
 使用原来的 960,000 个 PCM 样本、同一模型权重与转写配置在本机重做第三段 ASR，耗时 96.151 秒，得到 21 段，边界均在 [0, 60000) ms 视频范围内，末段结束于 58240 ms。新建正式适配器复读时逐项命中同一缓存。单独对最后四题的离线演练计入 7 次模拟推理、12 图。真实云端补测与人工裁定分别记录。[本地 ASR 核验](../../data/reports/m1_5_openai_r2/local_asr_precompute_audit.json) · [剩余四题演练](../../data/reports/m1_5_openai_r2/rehearsal/remaining/slice_offline_report.json)
 
-独立代理逐题预审了已回答部分，建议第 01、03、05、06、07 题正确，第 02 题错误，第 04、08 题拒答恰当。原始报告仍保留第 09–12 题的执行缺口，正式人工评分沿用已签核的历史记录。[本轮八题与待补题的逐项对照](../../data/reports/m1_5_openai_r2/manual_review.md)
+独立代理逐题预审了当时已回答的部分，建议第 01、03、05、06、07 题正确，第 02 题错误，第 04、08 题拒答恰当。原始报告保留了此次中断时第 09–12 题的执行缺口。[首次执行的逐项对照](../../data/reports/m1_5_openai_r2/manual_review.md)
 
 ## 第三段补测与原 12 题联合验收
 
@@ -62,3 +64,9 @@ OpenAI 访问预检返回 HTTP 200。已完成部分有 14 个不同的响应 ID
 本机运行 `.\.venv\Scripts\python.exe data/reports/m1_5_openai_r2/joint/review.py` 可重建核对页。该页将原题、固定标注、模型主张和引用的实际帧或转写放在一起，按题记录各自的来源。复核文件同时绑定两份原始报告的 SHA-256 和联合报告的 SHA-256。人工判定齐备后，同一入口的 `--score` 模式调用项目已有的 `evaluate_slice_report` 重算固定门槛。[逐题复核页](../../data/reports/m1_5_openai_r2/joint/manual_review.md) · [联合报告](../../data/reports/m1_5_openai_r2/joint/slice_live_combined.json)
 
 本次运行 `uv run --no-sync pytest tests/unit/test_slice_scoring_regressions.py -q --disable-socket --allow-unix-socket -o cache_dir=data/.m15-combined-tests --tb=line`，6 项评分回归全部通过。
+
+### 人工判定与余下的两道错题
+
+用户确认 01、03、05、06、07、09、10 正确，02、11 错误，04、08、12 拒答恰当。第 02 题给出动作起点，遗漏了约 8.5 秒时的位置变化。第 11 题覆盖人物、片名字幕及部分剧情，遗漏了 44,833 ms 字幕观察中记载的最后一个动作。两个错误均在正式报告的 `failed_cases` 中。此前失分的三道界面题全部答对，均能回查 2502 ms 的界面帧。
+
+执行 `.\.venv\Scripts\python.exe data/reports/m1_5_openai_r2/joint/review.py --score` 退出 0。正式评分报告 SHA-256 为 `90d7301596ed290ed9b9efe5ea45ebea31785db700e05d471d5303449c8afdd8`。结论适用于固定的 3 段 D0 开发切片，M2 所需的上游质量门已满足。[逐题证据与判定](../../data/reports/m1_5_openai_r2/joint/manual_review.md)
