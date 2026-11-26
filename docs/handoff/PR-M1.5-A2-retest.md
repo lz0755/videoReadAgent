@@ -46,3 +46,19 @@ OpenAI 访问预检返回 HTTP 200。已完成部分有 14 个不同的响应 ID
 使用原来的 960,000 个 PCM 样本、同一模型权重与转写配置在本机重做第三段 ASR，耗时 96.151 秒，得到 21 段，边界均在 [0, 60000) ms 视频范围内，末段结束于 58240 ms。新建正式适配器复读时逐项命中同一缓存。单独对最后四题的离线演练计入 7 次模拟推理、12 图。真实云端补测与人工裁定分别记录。[本地 ASR 核验](../../data/reports/m1_5_openai_r2/local_asr_precompute_audit.json) · [剩余四题演练](../../data/reports/m1_5_openai_r2/rehearsal/remaining/slice_offline_report.json)
 
 独立代理逐题预审了已回答部分，建议第 01、03、05、06、07 题正确，第 02 题错误，第 04、08 题拒答恰当。原始报告仍保留第 09–12 题的执行缺口，正式人工评分沿用已签核的历史记录。[本轮八题与待补题的逐项对照](../../data/reports/m1_5_openai_r2/manual_review.md)
+
+## 第三段补测与原 12 题联合验收
+
+用户单独批准第三段的 4 题，时限 600 秒，最多 7 次推理、12 图、每次 4 图、估算上限 0.03 美元，单请求 45 秒。启动器复核首次执行的失败行、内容哈希和本地 ASR 缓存后使用原受管目录。补测的模型元数据请求为 0 次，运行器退出 0。从领取额度到原始报告落盘约 53 秒。[补测批准](../../data/reports/m1_5_openai_r2/continuation/approved_budget.yaml) · [原始报告](../../data/reports/m1_5_openai_r2/continuation/slice_live_report.json)
+
+| 使用的题目 | 真实运行 ID | 原始报告 SHA-256 | 推理 / 图像 | 输入 / 输出 tokens | 估算 USD |
+| --- | --- | --- | --- | --- | --- |
+| 01–08 | `64ca4733ebd14036ac8a19e87e249b5a` | `84b431d5a9c20819e4a65a10c26d3fb306a1ea0bf74bda68aa6cccb8b1bdfdcb` | 14 / 22 | 68,785 / 4,002 | 0.0088795 |
+| 09–12 | `1eaf3e0196aa491ba41d84d4e7e9e1c9` | `806262148900ba3a6ffa4f5941f107416e68b9ba229a5fdd06ca9b3b15d5f5dc` | 7 / 12 | 37,072 / 3,535 | 0.0054747 |
+| 合计 | 两次实际执行 | 按原清单题序 | 21 / 34 | 105,857 / 7,537 | 0.0143542 |
+
+联合核验确认 3 个不同的 analysis_id、同一 Prompt bundle、21 个不同的真实响应 ID。34 张帧、21 段转写、49 条观察和 57 条检索候选可回查。19/19 次答案引用均来自本题候选并绑定其资产和分析。SQLite 登记的 45 个产物全部通过大小和哈希校验，外键异常为 0，未知费用事件为 0。首次执行中第三段的 4 个 `not_run` 仍在原失败快照中。[失败快照](../../data/reports/m1_5_openai_r2/failed_runs/64ca4733ebd14036ac8a19e87e249b5a/slice_live_report.json) · [联合核验](../../data/reports/m1_5_openai_r2/joint/acceptance_audit.json)
+
+本机运行 `.\.venv\Scripts\python.exe data/reports/m1_5_openai_r2/joint/review.py` 可重建核对页。该页将原题、固定标注、模型主张和引用的实际帧或转写放在一起，按题记录各自的来源。复核文件同时绑定两份原始报告的 SHA-256 和联合报告的 SHA-256。人工判定齐备后，同一入口的 `--score` 模式调用项目已有的 `evaluate_slice_report` 重算固定门槛。[逐题复核页](../../data/reports/m1_5_openai_r2/joint/manual_review.md) · [联合报告](../../data/reports/m1_5_openai_r2/joint/slice_live_combined.json)
+
+本次运行 `uv run --no-sync pytest tests/unit/test_slice_scoring_regressions.py -q --disable-socket --allow-unix-socket -o cache_dir=data/.m15-combined-tests --tb=line`，6 项评分回归全部通过。
