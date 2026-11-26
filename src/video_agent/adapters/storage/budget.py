@@ -53,6 +53,17 @@ class SQLiteBudgetStore:
             raise BudgetError(ErrorCode.BUDGET_EXCEEDED, "budget scope requires a bound job")
         return row
 
+    def observe_clock(self, scope_id: str, utc: str) -> str:
+        row = self._conn.execute(
+            "SELECT updated_at FROM budget_accounts WHERE scope_id=?", (scope_id,)
+        ).fetchone()
+        previous = row[0] if row and row[0] else utc
+        if datetime.fromisoformat(utc) >= datetime.fromisoformat(previous):
+            self._conn.execute(
+                "UPDATE budget_accounts SET updated_at=? WHERE scope_id=?", (utc, scope_id)
+            )
+        return str(previous)
+
     def check_binding(self, scope_id: str, job_id: str, asset_id: str, analysis_id: str) -> None:
         row = self._conn.execute(
             "SELECT 1 FROM jobs WHERE job_id=? AND asset_id=? AND analysis_id=? AND "
@@ -103,7 +114,6 @@ class SQLiteBudgetStore:
     def save_account(self, account: BudgetAccount) -> None:
         with self.transaction():
             job = self._job(account.scope_id, account.scope_kind)
-            now = datetime.now(UTC).isoformat()
             self._conn.execute(
                 """INSERT INTO budget_accounts(scope_id,scope_kind,limits_json,reserved_json,
                 consumed_json,started_at_utc,deadline_at_utc,cancelled,has_unknown_external_result,
@@ -112,8 +122,7 @@ class SQLiteBudgetStore:
                 started_at_utc=COALESCE(budget_accounts.started_at_utc,excluded.started_at_utc),
                 deadline_at_utc=COALESCE(budget_accounts.deadline_at_utc,excluded.deadline_at_utc),
                 cancelled=max(cancelled,excluded.cancelled),
-                has_unknown_external_result=excluded.has_unknown_external_result,
-                updated_at=excluded.updated_at""",
+                has_unknown_external_result=excluded.has_unknown_external_result""",
                 (
                     account.scope_id,
                     account.scope_kind,
@@ -124,7 +133,7 @@ class SQLiteBudgetStore:
                     account.deadline_at_utc,
                     account.cancelled,
                     account.has_unknown_external_result,
-                    now,
+                    account.started_at_utc or "",
                 ),
             )
             self._conn.execute(

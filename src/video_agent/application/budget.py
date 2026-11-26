@@ -96,6 +96,7 @@ class TransactionalBudgetStore(BudgetStore, Protocol):
     """Optional transactional behavior for jobs persisted in the application catalog."""
 
     def transaction(self) -> AbstractContextManager[None]: ...
+    def observe_clock(self, scope_id: str, utc: str) -> str: ...
     def check_binding(
         self, scope_id: str, job_id: str, asset_id: str, analysis_id: str
     ) -> None: ...
@@ -162,6 +163,7 @@ class BudgetGuard:
         with self._atomic():
             account = self._store.get_or_create_account(scope_id, scope_kind, resolved_limits)
             now_utc = self._clock.now_utc().astimezone(UTC)
+            self._observe_clock(scope_id, now_utc)
             now_mono = self._clock.monotonic()
 
             if account.started_at_utc is None or account.deadline_at_utc is None:
@@ -193,11 +195,12 @@ class BudgetGuard:
         scope_kind, limits = meta
         return self._store.get_or_create_account(scope_id, scope_kind, limits)
 
-    def _remaining_deadline_seconds_locked(self, account: BudgetAccount) -> float:
-        now_utc = self._clock.now_utc().astimezone(UTC)
-        now_mono = self._clock.monotonic()
-
-        last_utc = self._last_seen_utc.get(account.scope_id)
+    def _observe_clock(self, scope_id: str, now_utc: datetime) -> None:
+        last_utc = (
+            _parse_utc(self._durable.observe_clock(scope_id, _format_utc(now_utc)))
+            if self._durable
+            else self._last_seen_utc.get(scope_id)
+        )
         if last_utc is not None:
             backward_delta = (last_utc - now_utc).total_seconds()
             if backward_delta > _MAX_BACKWARD_SKEW_SECONDS:
@@ -205,7 +208,12 @@ class BudgetGuard:
                     ErrorCode.CLOCK_SKEW_DETECTED,
                     f"wall clock jumped backwards by {backward_delta:.2f}s; halting execution",
                 )
-        self._last_seen_utc[account.scope_id] = now_utc
+        self._last_seen_utc[scope_id] = max(last_utc or now_utc, now_utc)
+
+    def _remaining_deadline_seconds_locked(self, account: BudgetAccount) -> float:
+        now_utc = self._clock.now_utc().astimezone(UTC)
+        now_mono = self._clock.monotonic()
+        self._observe_clock(account.scope_id, now_utc)
 
         if account.deadline_at_utc is None:
             raise BudgetError(
@@ -586,6 +594,7 @@ class BudgetGuard:
         images_sent: int | None = None,
         provider_request_id: str | None = None,
         confirmed_cost_usd: float | None = None,
+        missing_usage: bool = False,
     ) -> None:
         """Atomically validate and settle a provider attempt; errors leave reservation active."""
         with self._atomic():
@@ -658,10 +667,15 @@ class BudgetGuard:
                     ),
                 )
 
-            if confirmed_cost_usd is not None:
-                cost_status: CostStatus = "confirmed"
+            cost_status: CostStatus
+            if missing_usage:
+                cost_status = "unknown"
+                est_cost = active.reserved_cost_usd
+                conf_cost = None
+            elif confirmed_cost_usd is not None:
+                cost_status = "confirmed"
                 est_cost = confirmed_cost_usd
-                conf_cost: float | None = confirmed_cost_usd
+                conf_cost = confirmed_cost_usd
             elif active.model_id in self._prices.models:
                 cost_status = "estimated"
                 est_cost = estimate_cost_usd(

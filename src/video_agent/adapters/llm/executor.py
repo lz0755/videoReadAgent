@@ -142,17 +142,13 @@ class ProviderExecutor:
             except BaseException:
                 guard.settle_unknown(reserved)
                 raise
-            if result.cost_status == "unknown":
-                guard.settle_unknown(reserved)
-            else:
-                confirmed_free = (
-                    result.cost_status == "confirmed" and reserved.reserved_cost_usd == 0
-                )
-                guard.settle_success(
-                    reserved,
-                    input_tokens=result.input_tokens,
-                    output_tokens=result.output_tokens,
-                    provider_request_id=result.provider_request_id,
-                    confirmed_cost_usd=0.0 if confirmed_free else None,
-                )
+            confirmed_free = result.cost_status == "confirmed" and reserved.reserved_cost_usd == 0
+            guard.settle_success(
+                reserved,
+                input_tokens=result.input_tokens,
+                output_tokens=result.output_tokens,
+                provider_request_id=result.provider_request_id,
+                missing_usage=result.cost_status == "unknown",
+                confirmed_cost_usd=0.0 if confirmed_free else None,
+            )
             return result
