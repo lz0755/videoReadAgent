@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 from collections import Counter, defaultdict
+from datetime import datetime
 from fractions import Fraction
 from pathlib import Path, PureWindowsPath
 from tempfile import NamedTemporaryFile
@@ -15,12 +16,16 @@ from PIL import Image
 
 from eval.manifest import (
     _compute_file_sha256,
+    _validate_authorization,
     _validate_evidence_refs,
     load_dev_seed_annotations,
     load_dev_seed_manifest,
     validate_dev_seed_dataset,
 )
-from experiments.dataset_curator import validate_subset_manifest
+from experiments.dataset_curator import BENCHMARK_AUTHORIZATIONS, validate_subset_manifest
+from video_agent.adapters.media.probe import LOCAL_FORMATS, probe_managed
+from video_agent.application.ingest import StagedSource
+from video_agent.domain.errors import MediaError
 from video_agent.domain.models import compute_canonical_pts_ms
 
 _SOURCE = Path("experiments/manifests/benchmark_subset_manifest.json")
@@ -66,6 +71,54 @@ def _local(root: Path, name: Any) -> Path:
     return path
 
 
+def _video_timeline(video: Row, path: Path, sha: str) -> int:
+    vid = _text(video["artifact_id"])
+    if "authorization" in video or "benchmark" in video:
+        auth = video["authorization"]
+        _validate_authorization(auth, vid)
+        recorded = datetime.fromisoformat(auth["recorded_at_utc"])
+        _check(
+            recorded.utcoffset() is not None
+            and auth["usage_scope"] == "local_non_commercial_research_eval_only",
+            "local research authorization required",
+        )
+        if "benchmark" in video:
+            expected = BENCHMARK_AUTHORIZATIONS[video["benchmark"]].to_dict()
+            _check(
+                all(
+                    auth[key] == expected[key]
+                    for key in (
+                        "license_name",
+                        "usage_scope",
+                        "source_repo_url",
+                        "commercial_use_allowed",
+                        "redistribution_allowed",
+                    )
+                ),
+                "source authorization mismatch",
+            )
+    size = path.stat().st_size
+    _check(0 < size <= 500 * 1024**2, "source exceeds P0 size")
+    asset = probe_managed(StagedSource(path, vid, sha, size), vid, path.name)
+    _check(asset.duration_ms <= 600000, "source exceeds P0 duration")
+    with av.open(
+        str(path), options={"protocol_whitelist": "file", "format_whitelist": LOCAL_FORMATS}
+    ) as source:
+        container_ms = (
+            round(Fraction(source.duration, 1000))
+            if source.duration is not None
+            else asset.duration_ms
+        )
+    declared = video["ffprobe"]
+    _check(_integer(declared["duration_ms"]) == container_ms, "container duration mismatch")
+    for field, actual in (("width", asset.width), ("height", asset.height)):
+        if field in declared:
+            _check(_integer(declared[field]) == actual, "source dimensions mismatch")
+    if "video_codec" in declared:
+        _check(declared["video_codec"] == asset.video_codec, "source codec mismatch")
+    return asset.duration_ms
+
+
 def _media(videos: list[Row], root: Path) -> dict[str, Row]:
     _check(Counter(v["split"] for v in videos) == _SPLITS, "incorrect video split")
     indexed = {}
@@ -82,7 +135,7 @@ def _media(videos: list[Row], root: Path) -> dict[str, Row]:
         if "byte_size" in v:
             _check(path.stat().st_size == _integer(v["byte_size"]), "source size mismatch")
         _check(_compute_file_sha256(path) == sha, "source hash mismatch")
-        indexed[vid] = v
+        indexed[vid] = v | {"timeline_duration_ms": _video_timeline(v, path, sha)}
         seen.add(sha)
     return indexed
 
@@ -128,7 +181,7 @@ def _questions(
                 q["evidence_refs"],
                 question_id=qid,
                 answerability=answerability,
-                duration_ms=indexed[vid]["ffprobe"]["duration_ms"],
+                duration_ms=indexed[vid]["timeline_duration_ms"],
             )
             if answerability == "answerable":
                 _text(q["reference_answer"])
@@ -164,7 +217,10 @@ def _verify_frames(video: Row, proofs: list[Row], *, repo_root: Path, evidence_r
         _check(ref["source_sha256"] == video["sha256"], "proof belongs to another source")
         required[(_integer(ref["raw_pts"]), _rational(ref["time_base"]))].append(ref)
 
-    with av.open(str(_local(repo_root, video["relative_path"]))) as container:
+    with av.open(
+        str(_local(repo_root, video["relative_path"])),
+        options={"protocol_whitelist": "file", "format_whitelist": LOCAL_FORMATS},
+    ) as container:
         origin: tuple[int, Fraction] | None = None
         for frame in container.decode(video=0):
             if frame.pts is None or frame.time_base is None:
@@ -184,7 +240,7 @@ def _verify_frames(video: Row, proofs: list[Row], *, repo_root: Path, evidence_r
                 origin_pts=origin_pts,
                 origin_time_base_num=origin_base.numerator,
                 origin_time_base_den=origin_base.denominator,
-                duration_ms=video["ffprobe"]["duration_ms"],
+                duration_ms=video["timeline_duration_ms"],
             )
             decoded = frame.to_image()  # type: ignore[no-untyped-call]
             pixels = decoded.tobytes()
@@ -214,6 +270,35 @@ def _verify_frames(video: Row, proofs: list[Row], *, repo_root: Path, evidence_r
     _check(not required, "specified raw presentation timestamp missing")
 
 
+def _reviewed_seed(indexed: dict[str, Row], seed: list[Row], corrections: Any) -> list[Row]:
+    """Retain the frozen D0 record and apply only an explicitly reviewed overlong endpoint."""
+    _check(isinstance(corrections, list), "invalid seed correction list")
+    rows = {q["question_id"]: q for q in seed}
+    _check(len(rows) == len(seed), "duplicate seed identity")
+    for note in corrections:
+        _check(
+            set(note) == {"question_id", "ref_index", "original_end_ms", "end_ms", "reason"},
+            "invalid seed correction fields",
+        )
+        _text(note["reason"])
+        qid = _text(note["question_id"])
+        q = rows[qid]
+        refs = list(q["evidence_refs"])
+        i = _integer(note["ref_index"])
+        _check(0 <= i < len(refs), "unknown seed evidence")
+        ref = refs[i]
+        limit = indexed[q["video_id"]]["timeline_duration_ms"]
+        end = _integer(note["end_ms"])
+        _check(
+            ref["end_ms"] == _integer(note["original_end_ms"])
+            and ref["start_ms"] < end <= limit < ref["end_ms"],
+            "only an overlength seed endpoint can be narrowed",
+        )
+        refs[i] = ref | {"end_ms": end}
+        rows[qid] = q | {"evidence_refs": refs}
+    return list(rows.values())
+
+
 def _packet(
     indexed: dict[str, Row], seed: list[Row], packet: Row, evidence_root: Path, repo_root: Path
 ) -> None:
@@ -222,20 +307,23 @@ def _packet(
     _text(review["coverage_note"])
     if any(v["ffprobe"]["duration_ms"] < 30000 for v in indexed.values()):
         _text(review["short_clip_decision"])
-    ids, questions = _questions(indexed, seed, packet["questions"])
+    reviewed = _reviewed_seed(indexed, seed, packet.get("seed_evidence_corrections", []))
+    ids, questions = _questions(indexed, reviewed, packet["questions"])
+    occurrences: set[tuple[str, str, int, int]] = set()
     events: dict[str, str] = {}
     proofs: dict[str, list[Row]] = defaultdict(list)
     held = {vid for vid, v in indexed.items() if v["split"] == "m6_holdout"}
     for event in _rows(packet["events"], 20):
         eid, vid = _text(event["event_id"]), _text(event["video_id"])
-        _text(event["label"])
+        label = _text(event["label"]).casefold()
         _check(eid not in ids and vid in held, "invalid event identity")
         ids.add(eid)
         events[eid] = vid
         left, right = _integer(event["start_ms"]), _integer(event["end_ms"])
-        _check(
-            0 <= left < right <= indexed[vid]["ffprobe"]["duration_ms"], "invalid event interval"
-        )
+        _check(0 <= left < right <= indexed[vid]["timeline_duration_ms"], "invalid event interval")
+        occurrence = (vid, label, left, right)
+        _check(occurrence not in occurrences, "duplicate labelled event interval")
+        occurrences.add(occurrence)
         for field, point in (("start_frames", left), ("end_frames", right)):
             before, after = _rows(event[field], 2)
             a, b = _integer(before["actual_pts_ms"]), _integer(after["actual_pts_ms"])
@@ -271,7 +359,7 @@ def verify_packet(
     """Verify split, questions, four actual decoded proof frames per event and request binding."""
     try:
         _packet(_media(videos, repo_root), seed, packet, evidence_root, repo_root)
-    except (KeyError, TypeError, IndexError, OSError) as exc:
+    except (KeyError, TypeError, IndexError, OSError, MediaError) as exc:
         raise ValueError("invalid packet or inaccessible evidence") from exc
 
 
@@ -310,6 +398,11 @@ def audit(*, repo_root: Path, packet_path: Path | None = None) -> Row:
                 "dev_videos": 16,
                 "heldout_videos": 8,
                 "dev_seed_questions": validated.question_count,
+                "seed_refs_requiring_endpoint_review": sum(
+                    ref["end_ms"] > indexed[q["video_id"]]["timeline_duration_ms"]
+                    for q in annotations["questions"]
+                    for ref in q["evidence_refs"]
+                ),
                 "clips_under_30_seconds": sum(v["ffprobe"]["duration_ms"] < 30000 for v in videos),
                 "metrics_sha256": _compute_file_sha256(Path(__file__).with_name("d1_metrics.py")),
                 "verifier_sha256": _compute_file_sha256(Path(__file__)),
@@ -337,7 +430,7 @@ def audit(*, repo_root: Path, packet_path: Path | None = None) -> Row:
             localization_requests=20,
         )
         del report["reason"]
-    except OSError, ValueError, TypeError, KeyError, IndexError:
+    except OSError, ValueError, TypeError, KeyError, IndexError, MediaError:
         pass  # Validation errors may include private questions, labels or evaluator paths.
     return report
 
