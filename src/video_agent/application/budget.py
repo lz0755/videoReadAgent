@@ -97,6 +97,7 @@ class TransactionalBudgetStore(BudgetStore, Protocol):
 
     def transaction(self) -> AbstractContextManager[None]: ...
     def observe_clock(self, scope_id: str, utc: str) -> str: ...
+    def bind_approval(self, scope_id: str, proposed: SliceRunLimits) -> SliceRunLimits: ...
     def check_binding(
         self, scope_id: str, job_id: str, asset_id: str, analysis_id: str
     ) -> None: ...
@@ -139,6 +140,7 @@ class BudgetGuard:
             clock.now_utc() + timedelta(seconds=duration) if duration is not None else None
         )
         self._lock = threading.Lock()
+        self._initial_approvals: dict[str, SliceRunLimits] = {}
         self._known_scopes: dict[str, tuple[Literal["analysis", "qa"], BudgetLimits]] = {}
         self._mono_anchors: dict[str, tuple[float, float]] = {}
         self._last_seen_utc: dict[str, datetime] = {}
@@ -162,12 +164,18 @@ class BudgetGuard:
         )
         with self._atomic():
             account = self._store.get_or_create_account(scope_id, scope_kind, resolved_limits)
+            if self._durable:
+                self._initial_approvals[scope_id] = self._durable.bind_approval(
+                    scope_id, self.run_limits or SliceRunLimits()
+                )
             now_utc = self._clock.now_utc().astimezone(UTC)
             self._observe_clock(scope_id, now_utc)
             now_mono = self._clock.monotonic()
 
             if account.started_at_utc is None or account.deadline_at_utc is None:
                 deadline_utc = now_utc + timedelta(seconds=account.limits.deadline_seconds)
+                if self._durable and self._run_deadline_utc is not None:
+                    deadline_utc = min(deadline_utc, self._run_deadline_utc)
                 account = account.model_copy(
                     update={
                         "started_at_utc": _format_utc(now_utc),
@@ -175,7 +183,7 @@ class BudgetGuard:
                     }
                 )
                 self._store.save_account(account)
-                remaining_sec = float(account.limits.deadline_seconds)
+                remaining_sec = (deadline_utc - now_utc).total_seconds()
             else:
                 deadline_utc = _parse_utc(account.deadline_at_utc)
                 remaining_sec = (deadline_utc - now_utc).total_seconds()
@@ -337,9 +345,19 @@ class BudgetGuard:
         )
 
     def _check_run_reservation_locked(self, request: RequestBudget) -> None:
-        limits = self.run_limits
-        if limits is None:
-            return
+        pinned = self._initial_approvals.get(request.scope_id)
+        if pinned:
+            self._check_numeric_limits(
+                request, pinned, [self._load_account_locked(request.scope_id)]
+            )
+        if self.run_limits:
+            accounts = [self._load_account_locked(scope) for scope in self._known_scopes]
+            self._check_numeric_limits(request, self.run_limits, accounts)
+
+    @staticmethod
+    def _check_numeric_limits(
+        request: RequestBudget, limits: SliceRunLimits, accounts: list[BudgetAccount]
+    ) -> None:
         if (
             limits.max_images_per_request is not None
             and request.image_count > limits.max_images_per_request
@@ -347,7 +365,6 @@ class BudgetGuard:
             raise BudgetError(ErrorCode.BUDGET_EXCEEDED, "approved images per request exceeded")
         # Consult the same authoritative accounts used for settlement. Pending and unknown
         # sends count even when another question/video asks for the last available slot.
-        accounts = [self._load_account_locked(scope) for scope in self._known_scopes]
         counters = [counter for a in accounts for counter in (a.consumed, a.reserved)]
         if limits.max_provider_attempts is not None and (
             1 + sum(c.provider_attempts for c in counters) > limits.max_provider_attempts
@@ -414,6 +431,9 @@ class BudgetGuard:
             if self.run_limits is not None and self.run_limits.request_timeout_seconds is not None:
                 timeout_sec = min(timeout_sec, self.run_limits.request_timeout_seconds)
 
+            pinned = self._initial_approvals.get(request.scope_id)
+            if pinned and pinned.request_timeout_seconds is not None:
+                timeout_sec = min(timeout_sec, pinned.request_timeout_seconds)
             attempt_id = f"att_{uuid.uuid4().hex[:12]}"
             reservation = BudgetReservation(
                 attempt_id=attempt_id,

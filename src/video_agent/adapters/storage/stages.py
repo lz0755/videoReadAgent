@@ -13,7 +13,7 @@ from video_agent.adapters.storage.observations import write_window
 from video_agent.application.observations import WindowResult
 from video_agent.application.prompt_registry import canonical_json_sha256
 from video_agent.domain.errors import ErrorCode, StorageError
-from video_agent.domain.models import BudgetLimits, FrameEvidence, StrictModel
+from video_agent.domain.models import FrameEvidence, StrictModel
 from video_agent.domain.ports import ArtifactStore
 
 
@@ -67,7 +67,8 @@ class StageCache:
         )
         with closing(connect_sqlite(self._db)) as conn, immediate_transaction(conn):
             row = conn.execute(
-                "SELECT b.limits_json,json_extract(b.consumed_json,'$.unique_sampled_frames') "
+                "SELECT json_extract(b.limits_json,'$.max_unique_sampled_frames'),"
+                "json_extract(b.consumed_json,'$.unique_sampled_frames') "
                 "FROM budget_accounts b JOIN analysis_runs a ON a.analysis_id=b.scope_id "
                 "JOIN artifacts f ON f.asset_id=a.asset_id WHERE a.analysis_id=? AND a.asset_id=? "
                 "AND f.artifact_id=? AND f.kind IN ('frame','crop')",
@@ -81,7 +82,7 @@ class StageCache:
             ).fetchone()
             if exists:
                 return True
-            cap = BudgetLimits.model_validate_json(row[0]).max_unique_sampled_frames
+            cap = row[0]
             if cap is None or row[1] >= cap:
                 return False
             conn.execute(

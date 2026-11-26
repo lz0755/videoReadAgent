@@ -231,6 +231,19 @@ class DeepSeekVisionProvider:
 
         completion = await _complete(api_key, self._base_url, request.timeout_seconds, payload_dict)
 
+        try:
+            return self._observations(request, completion)
+        except ProviderError as exc:
+            inputs, outputs, status = _usage(completion)
+            exc.details.update(
+                provider_request_id=getattr(completion, "id", None),
+                input_tokens=inputs,
+                output_tokens=outputs,
+                cost_status=status,
+            )
+            raise
+
+    def _observations(self, request: VisionRequest, completion: Any) -> VisionResponse:
         raw_text = completion.choices[0].message.content if completion.choices else ""
         parsed = _parse_json_content(raw_text)
         raw_obs_list = parsed.get("observations")

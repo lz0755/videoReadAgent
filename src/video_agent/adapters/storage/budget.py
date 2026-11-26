@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Literal
 
 from video_agent.adapters.storage.connection import connect_sqlite, immediate_transaction
+from video_agent.application.budget import SliceRunLimits
 from video_agent.domain.errors import BudgetError, ErrorCode
 from video_agent.domain.models import (
     BudgetAccount,
@@ -52,6 +53,21 @@ class SQLiteBudgetStore:
         if row is None:
             raise BudgetError(ErrorCode.BUDGET_EXCEEDED, "budget scope requires a bound job")
         return row
+
+    def bind_approval(self, scope_id: str, proposed: SliceRunLimits) -> SliceRunLimits:
+        row = self._conn.execute(
+            "SELECT json_extract(limits_json,'$.run_approval') "
+            "FROM budget_accounts WHERE scope_id=?",
+            (scope_id,),
+        ).fetchone()
+        if row[0] is not None:
+            return SliceRunLimits.model_validate_json(row[0])
+        self._conn.execute(
+            "UPDATE budget_accounts SET limits_json=json_set(limits_json,"
+            "'$.run_approval',json(?)) WHERE scope_id=?",
+            (proposed.model_dump_json(), scope_id),
+        )
+        return proposed
 
     def observe_clock(self, scope_id: str, utc: str) -> str:
         row = self._conn.execute(
@@ -97,10 +113,12 @@ class SQLiteBudgetStore:
                 return account
             if row["scope_kind"] != scope_kind:
                 raise BudgetError(ErrorCode.IDEMPOTENCY_CONFLICT, "scope kind differs")
+            limits_payload = json.loads(row["limits_json"])
+            limits_payload.pop("run_approval", None)
             return BudgetAccount(
                 scope_id=scope_id,
                 scope_kind=scope_kind,
-                limits=BudgetLimits.model_validate_json(row["limits_json"]),
+                limits=BudgetLimits.model_validate(limits_payload),
                 reserved=BudgetCounters.model_validate_json(row["reserved_json"]),
                 consumed=BudgetCounters.model_validate_json(row["consumed_json"]),
                 started_at_utc=row["started_at_utc"],
