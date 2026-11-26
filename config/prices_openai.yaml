@@ -1,0 +1,13 @@
+currency: USD
+effective_date: "2026-11-26"
+source: "https://developers.openai.com/api/docs/models/gpt-6-luna"
+
+models:
+  gpt-6-luna:
+    input_per_1m_tokens_usd: 0.10
+    input_cache_hit_per_1m_tokens_usd: 0.01
+    output_per_1m_tokens_usd: 0.50
+    # Local conservative reservations for the D0 1080p frames and JSON schema.
+    # Actual usage is taken from the response, including image tokens.
+    estimated_tokens_per_image: 8192
+    request_overhead_tokens: 2048

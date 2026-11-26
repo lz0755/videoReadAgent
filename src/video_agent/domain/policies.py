@@ -15,6 +15,9 @@ from video_agent.domain.errors import (
 )
 from video_agent.domain.models import BudgetLimits
 
+# Shared by the slice's pre-send estimate and both live completion requests.
+SLICE_MAX_OUTPUT_TOKENS = 2048
+
 
 def build_budget_limits(
     config: AppConfig,

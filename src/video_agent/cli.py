@@ -1,21 +1,26 @@
-"""CLI entrypoint for video-agent (M1.1 offline doctor and command skeleton)."""
+"""CLI entrypoint for video-agent (M1.1 offline doctor + M1.5 vertical slice)."""
 
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 import os
 import shutil
 import sqlite3
 import subprocess
 import sys
-from collections.abc import Sequence
+import uuid
+from collections.abc import Coroutine, Sequence
 from dataclasses import asdict, dataclass
 from pathlib import Path
+from typing import Any, Literal, cast
 
 import yaml
 from pydantic import ValidationError
 
+from video_agent.application.slice import SliceQuestionSpec, VerticalSliceResult, run_vertical_slice
+from video_agent.bootstrap import build_slice_container
 from video_agent.domain.config import AppConfig
 
 
@@ -179,6 +184,85 @@ def run_doctor(
     return DoctorReport(ok=overall_ok, mode="offline", checks=checks)
 
 
+def _run_offline_coro[T](coro: Coroutine[Any, Any, T]) -> T:
+    """Drive pure offline coroutines without creating Windows loopback sockets."""
+    try:
+        coro.send(None)
+    except StopIteration as done:
+        return cast(T, done.value)
+    else:
+        coro.close()
+        raise RuntimeError("offline slice coroutine suspended unexpectedly")
+
+
+def _serialize_slice_result(
+    result: VerticalSliceResult, questions: Sequence[SliceQuestionSpec]
+) -> dict[str, Any]:
+    completed = {qr.question.question_id: qr for qr in result.question_results}
+    rows = []
+    for question in questions:
+        qr = completed.get(question.question_id)
+        if qr is not None:
+            answer = qr.answer.model_dump()
+            hits = qr.search_hits
+            ledger = qr.qa_usage_ledger
+            error_code = None
+        else:
+            failure = result.question_errors[question.question_id]
+            answer = None
+            hits = failure.search_hits
+            ledger = failure.qa_usage_ledger
+            error_code = failure.error_code
+        rows.append(
+            {
+                "question_id": question.question_id,
+                "query_text": question.query_text,
+                "execution_status": "failed" if error_code else "completed",
+                "error_code": error_code,
+                "search_hit_count": len(hits),
+                "answer": answer,
+                "qa_usage": {
+                    "total_attempts": ledger.total_attempts,
+                    "total_images_sent": ledger.total_images_sent,
+                    "cost_status": ledger.cost_status,
+                    "estimated_cost_usd": ledger.estimated_cost_usd,
+                    "confirmed_cost_usd": ledger.confirmed_cost_usd,
+                },
+            }
+        )
+    return {
+        "schema_version": "1.1",
+        "provider_mode": result.provider_mode,
+        "asset_id": result.asset.asset_id,
+        "display_filename": result.asset.display_filename,
+        "duration_ms": result.asset.duration_ms,
+        "analysis_id": result.analysis_id,
+        "prompt_bundle_hash": result.prompt_bundle_hash,
+        "audio_status": result.audio_status,
+        "latency_ms": result.latency_ms,
+        "frames": [
+            {
+                "evidence_id": f.evidence_id,
+                "artifact_id": f.artifact_id,
+                "requested_ms": f.requested_ms,
+                "actual_pts_ms": f.actual_pts_ms,
+            }
+            for f in result.frames
+        ],
+        "transcript_segment_count": len(result.transcript_segments),
+        "observation_count": len(result.observations),
+        "analysis_usage": {
+            "total_attempts": result.analysis_usage_ledger.total_attempts,
+            "total_images_sent": result.analysis_usage_ledger.total_images_sent,
+            "cost_status": result.analysis_usage_ledger.cost_status,
+            "confirmed_cost_usd": result.analysis_usage_ledger.confirmed_cost_usd,
+            "estimated_cost_usd": result.analysis_usage_ledger.estimated_cost_usd,
+        },
+        "questions": rows,
+        "warnings": list(result.warnings),
+    }
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="video-agent",
@@ -207,6 +291,80 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Emit machine-readable JSON diagnostics",
     )
+
+    slice_parser = subparsers.add_parser(
+        "slice",
+        help="Run the M1.5 real-media CLI vertical slice on a single local authorized video",
+    )
+    slice_parser.add_argument(
+        "--video",
+        type=Path,
+        required=True,
+        help="Path to user-selected authorized local video file",
+    )
+    slice_parser.add_argument(
+        "--question",
+        action="append",
+        required=True,
+        help="Question text to ask (repeatable)",
+    )
+    slice_parser.add_argument(
+        "--config",
+        type=Path,
+        default=Path("config/defaults.yaml"),
+        help="Path to defaults YAML configuration",
+    )
+    slice_parser.add_argument(
+        "--data-root",
+        type=Path,
+        default=Path("data/slice_work"),
+        help="Path to local managed slice data directory",
+    )
+    mode_group = slice_parser.add_mutually_exclusive_group(required=True)
+    mode_group.add_argument(
+        "--offline",
+        action="store_true",
+        help="Run offline pipeline verification using Fake LLM/ASR ports",
+    )
+    mode_group.add_argument(
+        "--live",
+        action="store_true",
+        help="Run live cloud vision/planner and local ASR (requires consent and credentials)",
+    )
+    slice_parser.add_argument(
+        "--budget-config",
+        type=Path,
+        help="Slice run approval YAML with numeric limits (required for live, optional offline).",
+    )
+    slice_parser.add_argument("--provider", choices=["deepseek", "openai"], help="Live provider")
+    slice_parser.add_argument(
+        "--cloud-egress-authorized",
+        action="store_true",
+        help="Explicit user authorization to transmit selected frames/text to cloud provider",
+    )
+    slice_parser.add_argument(
+        "--asr-model-path",
+        type=Path,
+        default=None,
+        help="Pre-downloaded local faster-whisper model directory (used in --live mode)",
+    )
+    slice_parser.add_argument(
+        "--sample-interval-ms",
+        type=int,
+        default=5000,
+        help="Overview frame sampling interval in milliseconds",
+    )
+    slice_parser.add_argument(
+        "--max-frames",
+        type=int,
+        default=16,
+        help="Maximum frames sampled for the vertical slice",
+    )
+    slice_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit machine-readable JSON output",
+    )
     return parser
 
 
@@ -230,6 +388,65 @@ def main(argv: Sequence[str] | None = None) -> int:
             for check in report.checks:
                 print(f"  [{check.status.upper():6s}] {check.name}: {check.detail}")
         return 0 if report.ok else 1
+
+    if args.command == "slice":
+        run_mode: Literal["offline", "live"] = "live" if args.live else "offline"
+        container = build_slice_container(
+            mode=run_mode,
+            data_root=args.data_root,
+            live_provider=args.provider,
+            config_path=args.config,
+            cloud_egress_authorized=bool(args.cloud_egress_authorized),
+            budget_config_path=args.budget_config,
+            asr_model_path=args.asr_model_path,
+        )
+        asset_id = f"asset_{uuid.uuid4().hex[:10]}"
+        analysis_id = f"an_{uuid.uuid4().hex[:10]}"
+        q_specs = [
+            SliceQuestionSpec(question_id=f"q_{idx:02d}", query_text=q_text)
+            for idx, q_text in enumerate(args.question, start=1)
+        ]
+        coro = run_vertical_slice(
+            str(args.video),
+            asset_id=asset_id,
+            analysis_id=analysis_id,
+            questions=q_specs,
+            media_backend=container.media_backend,
+            transcriber=container.transcriber,
+            vision_provider=container.vision_provider,
+            planner_provider=container.planner_provider,
+            budget_guard=container.budget_guard,
+            prompt_registry=container.prompt_registry,
+            config=container.config,
+            clock=container.clock,
+            provider_mode=container.mode,
+            collect_question_errors=True,
+            sample_interval_ms=args.sample_interval_ms,
+            max_frames=args.max_frames,
+        )
+        result = asyncio.run(coro) if args.live else _run_offline_coro(coro)
+        serialized = _serialize_slice_result(result, q_specs)
+        evidence_manifest = container.save_evidence_manifest(result)
+        serialized["evidence_manifest"] = evidence_manifest
+        if args.json:
+            print(json.dumps(serialized, ensure_ascii=False))
+        else:
+            print(
+                f"video-agent slice [{result.provider_mode}]: asset={result.asset.asset_id} "
+                f"analysis={result.analysis_id} frames={len(result.frames)} "
+                f"audio={result.audio_status}"
+            )
+            print(f"  evidence_manifest={evidence_manifest} (relative to --data-root)")
+            for row in serialized["questions"]:
+                answer = row["answer"]
+                if answer is None:
+                    print(f"  [{row['question_id']}] status=failed error={row['error_code']}")
+                else:
+                    print(
+                        f"  [{row['question_id']}] status={answer['status']} "
+                        f"claims={len(answer['claims'])} gaps={len(answer['gaps'])}"
+                    )
+        return int(bool(result.question_errors))
 
     return 2
 

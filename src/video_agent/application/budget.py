@@ -13,6 +13,8 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Literal
 
+from pydantic import AliasChoices, Field
+
 from video_agent.domain.config import AppConfig, PriceConfig
 from video_agent.domain.errors import BudgetError, ErrorCode
 from video_agent.domain.models import (
@@ -22,10 +24,12 @@ from video_agent.domain.models import (
     BudgetReservation,
     CostStatus,
     RequestBudget,
+    StrictModel,
     UsageLedger,
     UsageRecord,
 )
 from video_agent.domain.policies import (
+    SLICE_MAX_OUTPUT_TOKENS,
     build_budget_limits,
     clamp_request_timeout_seconds,
     estimate_cost_usd,
@@ -42,6 +46,27 @@ from video_agent.domain.ports import (
 )
 
 _MAX_BACKWARD_SKEW_SECONDS = 5.0
+
+
+class SliceRunLimits(StrictModel):
+    """Numeric approval for a whole manifest, shared by every analysis and QA scope."""
+
+    max_provider_attempts: int | None = Field(
+        default=None,
+        ge=0,
+        validation_alias=AliasChoices("max_provider_attempts", "max_model_attempts"),
+    )
+    max_submitted_image_parts: int | None = Field(default=None, ge=0)
+    max_images_per_request: int | None = Field(default=None, gt=0)
+    deadline_seconds: float | None = Field(default=None, gt=0)
+    request_timeout_seconds: float | None = Field(
+        default=None,
+        gt=0,
+        validation_alias=AliasChoices("request_timeout_seconds", "per_request_timeout_seconds"),
+    )
+    max_estimated_cost_usd: float | None = Field(
+        default=None, ge=0, validation_alias=AliasChoices("max_estimated_cost_usd", "max_cost_usd")
+    )
 
 
 def _format_utc(dt: datetime) -> str:
@@ -74,11 +99,18 @@ class BudgetGuard:
         clock: Clock,
         config: AppConfig,
         prices: PriceConfig,
+        run_limits: SliceRunLimits | None = None,
     ) -> None:
         self._store = store
         self._clock = clock
         self._config = config
         self._prices = prices
+        self.run_limits = run_limits
+        duration = run_limits.deadline_seconds if run_limits else None
+        self._run_deadline_mono = clock.monotonic() + duration if duration is not None else None
+        self._run_deadline_utc = (
+            clock.now_utc() + timedelta(seconds=duration) if duration is not None else None
+        )
         self._lock = threading.Lock()
         self._known_scopes: dict[str, tuple[Literal["analysis", "qa"], BudgetLimits]] = {}
         self._mono_anchors: dict[str, tuple[float, float]] = {}
@@ -166,6 +198,12 @@ class BudgetGuard:
                 f"scope '{account.scope_id}' is cancelled; no new external call allowed",
             )
         remaining = self._remaining_deadline_seconds_locked(account)
+        if self._run_deadline_mono is not None and self._run_deadline_utc is not None:
+            remaining = min(
+                remaining,
+                self._run_deadline_mono - self._clock.monotonic(),
+                (self._run_deadline_utc - self._clock.now_utc()).total_seconds(),
+            )
         if remaining <= 0.0:
             raise BudgetError(
                 ErrorCode.DEADLINE_EXCEEDED,
@@ -242,6 +280,46 @@ class BudgetGuard:
             self._store.save_account(account.model_copy(update={"consumed": updated_consumed}))
             return f"tc_{uuid.uuid4().hex[:12]}"
 
+    def estimate_slice_request(self, model_id: str, prompt_text: str, image_count: int) -> float:
+        """Reserve at reference prices using UTF-8 bytes, image allowance and capped output."""
+        price = self._prices.models.get(model_id)
+        overhead = price.request_overhead_tokens if price is not None else 0
+        return estimate_cost_usd(
+            self._prices,
+            model_id,
+            input_tokens=len(prompt_text.encode("utf-8")) + overhead,
+            output_tokens=SLICE_MAX_OUTPUT_TOKENS,
+            image_count=image_count,
+        )
+
+    def _check_run_reservation_locked(self, request: RequestBudget) -> None:
+        limits = self.run_limits
+        if limits is None:
+            return
+        if (
+            limits.max_images_per_request is not None
+            and request.image_count > limits.max_images_per_request
+        ):
+            raise BudgetError(ErrorCode.BUDGET_EXCEEDED, "approved images per request exceeded")
+        # Consult the same authoritative accounts used for settlement. Pending and unknown
+        # sends count even when another question/video asks for the last available slot.
+        accounts = [self._load_account_locked(scope) for scope in self._known_scopes]
+        counters = [counter for a in accounts for counter in (a.consumed, a.reserved)]
+        if limits.max_provider_attempts is not None and (
+            1 + sum(c.provider_attempts for c in counters) > limits.max_provider_attempts
+        ):
+            raise BudgetError(ErrorCode.BUDGET_EXCEEDED, "approved run attempts exhausted")
+        if limits.max_submitted_image_parts is not None and (
+            request.image_count + sum(c.submitted_image_parts for c in counters)
+            > limits.max_submitted_image_parts
+        ):
+            raise BudgetError(ErrorCode.BUDGET_EXCEEDED, "approved run image allowance exhausted")
+        if limits.max_estimated_cost_usd is not None and (
+            request.estimated_cost_usd + sum(c.estimated_cost_usd for c in counters)
+            > limits.max_estimated_cost_usd
+        ):
+            raise BudgetError(ErrorCode.BUDGET_EXCEEDED, "approved estimated run cost exceeded")
+
     def reserve_provider_attempt(self, request: RequestBudget) -> BudgetReservation:
         """Atomically reserve one model attempt, image parts, and estimated cost before send."""
         with self._lock:
@@ -277,10 +355,13 @@ class BudgetGuard:
                     f"max_submitted_image_parts ({limits.max_submitted_image_parts}) exceeded",
                 )
 
+            self._check_run_reservation_locked(request)
             timeout_sec = clamp_request_timeout_seconds(
                 float(limits.request_timeout_seconds),
                 remaining_sec,
             )
+            if self.run_limits is not None and self.run_limits.request_timeout_seconds is not None:
+                timeout_sec = min(timeout_sec, self.run_limits.request_timeout_seconds)
 
             attempt_id = f"att_{uuid.uuid4().hex[:12]}"
             reservation = BudgetReservation(

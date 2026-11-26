@@ -1,4 +1,4 @@
-"""Composition root for wiring concrete adapters to domain ports (M1.3).
+"""Composition root for wiring concrete adapters to domain ports (M1.3 / M1.5.2).
 
 Concrete implementations are assembled exclusively here.
 No import-time network access, API key lookups, or model weight loading.
@@ -6,23 +6,44 @@ No import-time network access, API key lookups, or model weight loading.
 
 from __future__ import annotations
 
+import json
+import os
 import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Literal
 
 import yaml
 
 from video_agent.adapters.asr.fake import FakeTranscriber
+from video_agent.adapters.asr.faster_whisper_thin import FasterWhisperThinTranscriber
+from video_agent.adapters.llm.deepseek import (
+    DeepSeekPlannerProvider,
+    DeepSeekVisionProvider,
+    slice_endpoint,
+)
 from video_agent.adapters.llm.fake import FakePlannerProvider, FakeVisionProvider
+from video_agent.adapters.llm.openai_slice import OPENAI_MODEL_ID
+from video_agent.adapters.media.thin_media import LocalArtifactStore, PyAVMediaBackend
 from video_agent.adapters.storage.memory_budget import InMemoryBudgetStore
 from video_agent.application.budget import (
     BudgetedPlannerProvider,
     BudgetedVisionProvider,
     BudgetGuard,
+    SliceRunLimits,
 )
-from video_agent.domain.config import AppConfig, PriceConfig
-from video_agent.domain.ports import Clock, PlannerProvider, Transcriber, VisionProvider
+from video_agent.application.prompt_registry import PromptRegistry
+from video_agent.application.slice import VerticalSliceResult
+from video_agent.domain.config import AppConfig, PriceConfig, ProviderConfig
+from video_agent.domain.errors import BudgetError, ErrorCode, ProviderError
+from video_agent.domain.ports import (
+    Clock,
+    MediaBackend,
+    PlannerProvider,
+    Transcriber,
+    VisionProvider,
+)
 
 
 class SystemClock:
@@ -91,4 +112,236 @@ def build_offline_container(
         vision_provider=BudgetedVisionProvider(vision, guard),
         planner_provider=BudgetedPlannerProvider(planner, guard),
         transcriber=transcriber if transcriber is not None else FakeTranscriber(),
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class SliceContainer:
+    """Injected vertical-slice container assembled exclusively in bootstrap.py."""
+
+    mode: Literal["offline_fake", "live"]
+    config: AppConfig
+    prices: PriceConfig
+    clock: Clock
+    artifact_store: LocalArtifactStore
+    media_backend: MediaBackend
+    prompt_registry: PromptRegistry
+    budget_guard: BudgetGuard
+    vision_provider: VisionProvider
+    planner_provider: PlannerProvider
+    transcriber: Transcriber
+
+    def save_evidence_manifest(self, result: VerticalSliceResult) -> str:
+        """Publish one reviewable local artifact and return its path relative to data_root."""
+        store = self.artifact_store
+        root = store.root_dir.parent
+        artifact_ids = [
+            result.asset.source_artifact_id,
+            result.audio_artifact_id,
+            *(frame.artifact_id for frame in result.frames),
+        ]
+        trace = {
+            "schema_version": "1.1",
+            "provider_mode": result.provider_mode,
+            "asset_id": result.asset.asset_id,
+            "sha256": result.asset.sha256,
+            "analysis_id": result.analysis_id,
+            "prompt_bundle_hash": result.prompt_bundle_hash,
+            "source_artifact_id": result.asset.source_artifact_id,
+            "audio_artifact_id": result.audio_artifact_id,
+            "audio_timeline": result.audio_timeline.model_dump() if result.audio_timeline else None,
+            "artifact_paths": {
+                aid: store.resolve_path(aid).relative_to(root).as_posix()
+                for aid in artifact_ids
+                if aid is not None
+            },
+            "frames": [f.model_dump() for f in result.frames],
+            "transcript_segments": [s.model_dump() for s in result.transcript_segments],
+            "observations": [o.model_dump() for o in result.observations],
+            "questions": [
+                {
+                    "question_id": qr.question.question_id,
+                    "query_text": qr.question.query_text,
+                    "search_hits": [hit.model_dump() for hit in qr.search_hits],
+                    "answer": qr.answer.model_dump(),
+                }
+                for qr in result.question_results
+            ],
+            "question_errors": {
+                qid: {
+                    "error_code": failure.error_code,
+                    "query_text": failure.question.query_text,
+                    "search_hits": [hit.model_dump() for hit in failure.search_hits],
+                }
+                for qid, failure in result.question_errors.items()
+            },
+        }
+        artifact_id = store.put_bytes(
+            result.asset.asset_id,
+            "slice_evidence",
+            json.dumps(trace, ensure_ascii=False, indent=2).encode("utf-8"),
+            suffix=".json",
+        )
+        return store.resolve_path(artifact_id).relative_to(root).as_posix()
+
+
+def _load_slice_approval(path: Path) -> tuple[bool, SliceRunLimits | None]:
+    if not path.is_file():
+        raise ValueError("slice budget approval file was not found")
+    raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+    if not isinstance(raw, dict):
+        raise ValueError("slice budget approval must be a mapping")
+    if "authorization" in raw:
+        auth = raw.pop("authorization")
+        if not isinstance(auth, dict) or {"live_enabled", "cloud_egress_authorized"} & raw.keys():
+            raise ValueError("slice approval requires one authorization mapping")
+    else:
+        auth = {key: raw.pop(key, False) for key in ("live_enabled", "cloud_egress_authorized")}
+    flags = [auth.get(key, False) for key in ("live_enabled", "cloud_egress_authorized")]
+    if not all(isinstance(flag, bool) for flag in flags):
+        raise ValueError("slice authorization flags must be YAML booleans")
+    if "budget" in raw:
+        limits = raw.pop("budget")
+        if raw:
+            raise ValueError("put all numeric slice limits in the budget mapping")
+    else:
+        limits = raw
+    if not isinstance(limits, dict) or any(v is None for v in limits.values()):
+        raise ValueError("slice limits must be a mapping with numeric values")
+    return all(flags), SliceRunLimits.model_validate(limits) if limits else None
+
+
+def build_slice_container(
+    *,
+    mode: Literal["offline", "live"],
+    data_root: Path,
+    live_provider: Literal["deepseek", "openai"] | None = None,
+    repo_root: Path = Path("."),
+    config_path: Path | None = None,
+    price_config_path: Path | None = None,
+    prompts_registry_path: Path | None = None,
+    cloud_egress_authorized: bool = False,
+    budget_config_path: Path | None = None,
+    asr_model_path: Path | None = None,
+    vision_provider: VisionProvider | None = None,
+    planner_provider: PlannerProvider | None = None,
+    transcriber: Transcriber | None = None,
+    clock: Clock | None = None,
+) -> SliceContainer:
+    """Wire a real-media M1.5 vertical slice container in offline-fake or explicit live mode."""
+    config = load_app_config(config_path or repo_root / "config" / "defaults.yaml")
+    if live_provider is not None:
+        if mode != "live":
+            raise ValueError("explicit provider selection requires live mode")
+        model, key_env = (
+            (OPENAI_MODEL_ID, "OPENAI_API_KEY")
+            if live_provider == "openai"
+            else ("deepseek-flash", "DEEPSEEK_API_KEY")
+        )
+        config = config.model_copy(
+            update={
+                "provider": ProviderConfig(name=live_provider, model=model, api_key_env=key_env)
+            }
+        )
+    if mode == "live" and config.provider.name == "openai":
+        price_path = Path(config.billing.price_config_path).with_name("prices_openai.yaml")
+        config = config.model_copy(
+            update={
+                "billing": config.billing.model_copy(update={"price_config_path": str(price_path)})
+            }
+        )
+    resolved_price_path = (
+        price_config_path
+        if price_config_path is not None
+        else repo_root / config.billing.price_config_path
+    )
+    resolved_prompts_path = (
+        prompts_registry_path
+        if prompts_registry_path is not None
+        else repo_root / config.prompts.registry_path
+    )
+    prices = load_price_config(resolved_price_path)
+    prompt_registry = PromptRegistry(resolved_prompts_path)
+    resolved_clock = clock if clock is not None else SystemClock()
+    run_limits = None
+    if budget_config_path is not None:
+        cloud_egress_authorized, run_limits = _load_slice_approval(budget_config_path)
+    guard = BudgetGuard(
+        store=InMemoryBudgetStore(),
+        clock=resolved_clock,
+        config=config,
+        prices=prices,
+        run_limits=run_limits,
+    )
+    artifact_store = LocalArtifactStore(data_root / "artifacts")
+    media_backend = PyAVMediaBackend(artifact_store)
+
+    if mode == "live":
+        if not cloud_egress_authorized:
+            raise ProviderError(
+                ErrorCode.CLOUD_DISABLED,
+                "live vertical slice requires explicit cloud_egress_authorized=True",
+            )
+        api_key_env = config.provider.api_key_env
+        slice_endpoint(config.provider.name, config.provider.model, api_key_env)
+        if not os.environ.get(api_key_env, "").strip():
+            raise ProviderError(
+                ErrorCode.CREDENTIAL_MISSING,
+                f"live vertical slice requires '{api_key_env}' environment variable",
+            )
+        if run_limits is None:
+            raise BudgetError(
+                ErrorCode.BUDGET_EXCEEDED, "live slice requires an approved numeric budget"
+            )
+        resolved_vision: VisionProvider = (
+            vision_provider
+            if vision_provider is not None
+            else DeepSeekVisionProvider(
+                artifact_store=artifact_store,
+                model_id=config.provider.model,
+                api_key_env=api_key_env,
+                cloud_upload_enabled=True,
+                provider_name=config.provider.name,
+            )
+        )
+        resolved_planner: PlannerProvider = (
+            planner_provider
+            if planner_provider is not None
+            else DeepSeekPlannerProvider(
+                model_id=config.provider.model,
+                api_key_env=api_key_env,
+                cloud_upload_enabled=True,
+                provider_name=config.provider.name,
+            )
+        )
+        resolved_transcriber: Transcriber = (
+            transcriber
+            if transcriber is not None
+            else FasterWhisperThinTranscriber(artifact_store, model_path=asr_model_path)
+        )
+        resolved_mode: Literal["offline_fake", "live"] = "live"
+    else:
+        resolved_vision = (
+            vision_provider
+            if vision_provider is not None
+            else FakeVisionProvider(duration_ms=config.media.max_duration_ms)
+        )
+        resolved_planner = (
+            planner_provider if planner_provider is not None else FakePlannerProvider()
+        )
+        resolved_transcriber = transcriber if transcriber is not None else FakeTranscriber()
+        resolved_mode = "offline_fake"
+
+    return SliceContainer(
+        mode=resolved_mode,
+        config=config,
+        prices=prices,
+        clock=resolved_clock,
+        artifact_store=artifact_store,
+        media_backend=media_backend,
+        prompt_registry=prompt_registry,
+        budget_guard=guard,
+        vision_provider=BudgetedVisionProvider(resolved_vision, guard),
+        planner_provider=BudgetedPlannerProvider(resolved_planner, guard),
+        transcriber=resolved_transcriber,
     )

@@ -109,6 +109,7 @@ class ModelPrice(StrictModel):
     input_cache_hit_per_1m_tokens_usd: float = Field(ge=0.0)
     output_per_1m_tokens_usd: float = Field(ge=0.0)
     estimated_tokens_per_image: StrictInt = Field(ge=0)
+    request_overhead_tokens: StrictInt = Field(default=32, ge=0)
 
     @field_validator(
         "input_per_1m_tokens_usd",
