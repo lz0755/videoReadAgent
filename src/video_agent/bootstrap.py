@@ -551,7 +551,14 @@ def _index_asset(db: Path, files: CatalogArtifactStore, asset_id: str) -> VideoA
 
 
 def _bind_index_job(
-    db: Path, asset: VideoAsset, analysis: str, config_hash: str, bundle: str
+    db: Path,
+    asset: VideoAsset,
+    analysis: str,
+    config_hash: str,
+    bundle: str,
+    *,
+    resume: bool,
+    guard: BudgetGuard,
 ) -> str:
     with closing(connect_sqlite(db)) as conn:
         row = conn.execute(
@@ -560,6 +567,10 @@ def _bind_index_job(
             (analysis,),
         ).fetchone()
         if row is None:
+            if resume:
+                raise StorageError(
+                    ErrorCode.IDEMPOTENCY_CONFLICT, "original analysis does not exist"
+                )
             _, job = create_analysis_with_job(
                 conn,
                 analysis_id=analysis,
@@ -577,18 +588,16 @@ def _bind_index_job(
             if row[2] == "cancelled" or row[3]:
                 raise BudgetError(ErrorCode.JOB_CANCELLED, "analysis was cancelled")
             job = str(row[1])
+        changed = conn.execute(
+            "SELECT 1 FROM analysis_runs WHERE analysis_id=? AND "
+            "(config_hash!=? OR prompt_bundle_hash!=?)",
+            (analysis, config_hash, bundle),
+        ).fetchone()
+        if changed:
+            raise StorageError(ErrorCode.IDEMPOTENCY_CONFLICT, "analysis configuration differs")
+        guard.ensure_started(analysis, "analysis")
+        guard.remaining_seconds(analysis)
         with immediate_transaction(conn):
-            changed = conn.execute(
-                "SELECT 1 FROM analysis_runs WHERE analysis_id=? AND "
-                "(config_hash!=? OR prompt_bundle_hash!=?)",
-                (analysis, config_hash, bundle),
-            ).fetchone()
-            if changed:
-                conn.execute(
-                    "UPDATE stage_results SET status='invalidated' WHERE analysis_id=? "
-                    "AND stage IN ('index','observe')",
-                    (analysis,),
-                )
             conn.execute(
                 "UPDATE analysis_runs SET config_hash=?,prompt_bundle_hash=?,"
                 "index_state='indexing',"
@@ -727,7 +736,15 @@ async def index_registered_asset(
             config_hash = canonical_json_sha256(
                 [config.analysis.model_dump(), profile, mode, port.model_id, high]
             )
-            job = _bind_index_job(db, asset, analysis, config_hash, bundle)
+            job = _bind_index_job(
+                db,
+                asset,
+                analysis,
+                config_hash,
+                bundle,
+                resume=analysis_id is not None,
+                guard=guard,
+            )
             try:
                 return await pipeline.run(asset, analysis, job, profile)
             except Exception as exc:

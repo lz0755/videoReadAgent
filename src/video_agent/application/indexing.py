@@ -146,13 +146,19 @@ class IndexPipeline:
         selected = {}
         for f in frames:
             if f.actual_pts_ms not in selected and self.admit(analysis, f):
-                selected[f.actual_pts_ms] = f
+                # The M2 logical sample can be regenerated into a different physical artifact.
+                # Its immutable M3 evidence must continue resolving to its original file.
+                selected[f.actual_pts_ms] = f.model_copy(
+                    update={
+                        "evidence_id": "ev_frame_"
+                        + canonical_json_sha256([f.asset_id, f.evidence_id, f.artifact_id])
+                    }
+                )
         return list(selected.values())
 
     async def run(
         self, asset: VideoAsset, analysis: str, job: str, profile: SceneProfile
     ) -> dict[str, object]:
-        self.guard.ensure_started(analysis, "analysis")
         self.guard.remaining_seconds(analysis)
         plan = plan_windows(asset.duration_ms, profile, self.config.analysis)
         transcripts, audio_status = await self._speech(asset, analysis)
