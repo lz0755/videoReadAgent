@@ -24,3 +24,15 @@ uv run --no-sync python -m eval.slice_runner --manifest eval/manifests/slice.jso
 ```
 
 离线演练完成 3 段、12 题，三段分别取到 10、12、12 帧，合计 21 次模拟调用。第二轮取得单次明确授权，模型为 OpenAI `gpt-6-luna`，推理最多 21 次，图像最多 34 份，每次最多 4 图，估算费用上限 0.10 美元，总时限 900 秒，单请求 45 秒，另限一次模型访问预检。启动器独占领取本轮额度，通过本机掩码窗口接收密钥。[演练报告](../../data/reports/m1_5_openai_r2/rehearsal/slice_offline_report.json) · [本轮授权](../../data/reports/m1_5_openai_r2/approved_budget.yaml)
+
+本机从项目根目录启动本轮程序。启动器核验切片清单、标注、权重、视觉模板和预算文件的 SHA-256。收到密钥后，它独占领取本轮额度，查询模型访问权限，再执行 `eval.slice_runner --live --provider openai`。输出保存于 `data/reports/m1_5_openai_r2/`。初次打开窗口时为 `awaiting_local_credential`，此时模型查询和推理计数均为零。[当前启动状态](../../data/reports/m1_5_openai_r2/status.json)
+
+```powershell
+.\.venv\Scripts\python.exe data/reports/m1_5_openai_r2/run.py
+```
+
+生成报告后，启动器自动准备本轮 `manual_review.md` 和待填写的 `manual_judgments.json`，并在本机独立复核引用归属、PTS、音频边界、SQLite 登记与产物哈希。人工确认 12 项判定后，可用下面的命令重算本轮评分。程序同时检查报告 SHA-256、运行 ID 及全部题目 ID。
+
+```powershell
+.\.venv\Scripts\python.exe data/reports/m1_5_openai_r2/review.py --score
+```
