@@ -20,7 +20,8 @@ def _source_stages(
     return {
         item: (key, checksum)
         for item, key, checksum in conn.execute(
-            "SELECT item_key,config_hash,checksum FROM stage_results WHERE analysis_id=? AND asset_id=? "
+            "SELECT item_key,config_hash,checksum FROM stage_results "
+            "WHERE analysis_id=? AND asset_id=? "
             "AND stage='observe' AND status='committed'",
             (analysis, asset),
         )
@@ -68,6 +69,13 @@ class SQLiteSearchIndex:
             key_hash = canonical_json_sha256([version, expected])
             checksum = canonical_json_sha256([(k, astuple(v)) for k, v in sorted(docs.items())])
             with immediate_transaction(conn):
+                job = conn.execute(
+                    "SELECT cancel_requested,status FROM jobs WHERE analysis_id=? AND asset_id=? "
+                    "AND kind='analysis'",
+                    scope,
+                ).fetchone()
+                if not job or job[0] or job[1] == "cancelled":
+                    raise StorageError(ErrorCode.JOB_CANCELLED, "index job is cancelled or absent")
                 if _source_stages(conn, asset_id, analysis_id) != expected:
                     raise StorageError(
                         ErrorCode.INDEX_NOT_READY, "window changed before publication"
@@ -127,6 +135,7 @@ class SQLiteSearchIndex:
             "WHERE analysis_id=? AND asset_id=?)",
             scope,
         )
+        conn.executemany("DELETE FROM search_fts WHERE doc_id=?", [(key,) for key in docs])
         conn.execute("DELETE FROM search_docs WHERE analysis_id=? AND asset_id=?", scope)
         conn.executemany(
             "INSERT INTO search_docs(doc_id,analysis_id,asset_id,source_kind,source_id,"
@@ -141,7 +150,8 @@ class SQLiteSearchIndex:
         conn.execute(
             """INSERT INTO stage_results(analysis_id,asset_id,stage,item_key,config_hash,
                      checksum,status,created_at) VALUES(?,?,'index','all',?,?,'committed',?)
-                     ON CONFLICT(analysis_id,stage,item_key) DO UPDATE SET config_hash=excluded.config_hash,
+                     ON CONFLICT(analysis_id,stage,item_key) DO UPDATE SET
+                     config_hash=excluded.config_hash,
                      checksum=excluded.checksum,status='committed',created_at=excluded.created_at""",
             (*scope, key_hash, checksum, now),
         )
