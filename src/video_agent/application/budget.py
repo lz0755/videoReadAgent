@@ -9,9 +9,11 @@ from __future__ import annotations
 
 import threading
 import uuid
+from collections.abc import Iterator
+from contextlib import AbstractContextManager, contextmanager, nullcontext
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import Literal
+from typing import Literal, Protocol, runtime_checkable
 
 from pydantic import AliasChoices, Field
 
@@ -89,6 +91,29 @@ class _ActiveAttempt:
         return self.pending.images_sent if self.dispatched else self.reservation.reserved_images
 
 
+@runtime_checkable
+class TransactionalBudgetStore(BudgetStore, Protocol):
+    """Optional transactional behavior for jobs persisted in the application catalog."""
+
+    def transaction(self) -> AbstractContextManager[None]: ...
+    def check_binding(
+        self, scope_id: str, job_id: str, asset_id: str, analysis_id: str
+    ) -> None: ...
+    def insert_attempt(
+        self,
+        reservation: BudgetReservation,
+        pending: UsageRecord,
+        *,
+        operation_key: str | None,
+        explicit_retry: bool,
+        previous_attempt_id: str | None,
+        price_version: str,
+    ) -> None: ...
+    def read_attempt(
+        self, attempt_id: str
+    ) -> tuple[BudgetReservation, UsageRecord, bool] | None: ...
+
+
 class BudgetGuard:
     """Atomic pre-send reservation, tool counting, deadline, cancellation, and settlement guard."""
 
@@ -102,6 +127,7 @@ class BudgetGuard:
         run_limits: SliceRunLimits | None = None,
     ) -> None:
         self._store = store
+        self._durable = store if isinstance(store, TransactionalBudgetStore) else None
         self._clock = clock
         self._config = config
         self._prices = prices
@@ -117,6 +143,11 @@ class BudgetGuard:
         self._last_seen_utc: dict[str, datetime] = {}
         self._active_reservations: dict[str, _ActiveAttempt] = {}
 
+    @contextmanager
+    def _atomic(self) -> Iterator[None]:
+        with self._lock, self._durable.transaction() if self._durable else nullcontext():
+            yield
+
     def ensure_started(
         self,
         scope_id: str,
@@ -128,7 +159,7 @@ class BudgetGuard:
         resolved_limits = (
             limits if limits is not None else build_budget_limits(self._config, scope_kind)
         )
-        with self._lock:
+        with self._atomic():
             account = self._store.get_or_create_account(scope_id, scope_kind, resolved_limits)
             now_utc = self._clock.now_utc().astimezone(UTC)
             now_mono = self._clock.monotonic()
@@ -213,12 +244,12 @@ class BudgetGuard:
 
     def remaining_seconds(self, scope_id: str) -> float:
         """Read the active scope/run time left without reserving a provider attempt."""
-        with self._lock:
+        with self._atomic():
             return self._check_active_locked(self._load_account_locked(scope_id))
 
     def cancel(self, scope_id: str) -> BudgetAccount:
         """Mark scope cancelled so no further external calls or tool executions may start."""
-        with self._lock:
+        with self._atomic():
             account = self._load_account_locked(scope_id)
             updated = account.model_copy(update={"cancelled": True})
             self._store.save_account(updated)
@@ -226,7 +257,7 @@ class BudgetGuard:
 
     def begin_round(self, scope_id: str) -> int:
         """Check deadline/cancellation and consume one planner round."""
-        with self._lock:
+        with self._atomic():
             account = self._load_account_locked(scope_id)
             self._check_active_locked(account)
             max_rounds = account.limits.max_rounds
@@ -249,7 +280,7 @@ class BudgetGuard:
         expensive: bool = False,
     ) -> str:
         """Atomically deduct tool / expensive tool counters and return a tool_call_id."""
-        with self._lock:
+        with self._atomic():
             account = self._load_account_locked(scope_id)
             self._check_active_locked(account)
 
@@ -325,9 +356,16 @@ class BudgetGuard:
         ):
             raise BudgetError(ErrorCode.BUDGET_EXCEEDED, "approved estimated run cost exceeded")
 
-    def reserve_provider_attempt(self, request: RequestBudget) -> BudgetReservation:
+    def reserve_provider_attempt(
+        self,
+        request: RequestBudget,
+        *,
+        operation_key: str | None = None,
+        explicit_retry: bool = False,
+        previous_attempt_id: str | None = None,
+    ) -> BudgetReservation:
         """Atomically reserve one model attempt, image parts, and estimated cost before send."""
-        with self._lock:
+        with self._atomic():
             account = self._load_account_locked(request.scope_id)
             remaining_sec = self._check_active_locked(account)
             limits = account.limits
@@ -408,8 +446,18 @@ class BudgetGuard:
                 confirmed_cost_usd=None,
                 cost_status="estimated",
             )
-            self._store.record_usage(pending)
-            self._active_reservations[attempt_id] = _ActiveAttempt(reservation, pending)
+            if self._durable:
+                self._durable.insert_attempt(
+                    reservation,
+                    pending,
+                    operation_key=operation_key,
+                    explicit_retry=explicit_retry,
+                    previous_attempt_id=previous_attempt_id,
+                    price_version=self._prices.effective_date,
+                )
+            else:
+                self._store.record_usage(pending)
+                self._active_reservations[attempt_id] = _ActiveAttempt(reservation, pending)
             return reservation
 
     def _release_reserved_counters(
@@ -432,6 +480,10 @@ class BudgetGuard:
         )
 
     def _active_attempt_locked(self, attempt_id: str | None) -> _ActiveAttempt:
+        if self._durable and attempt_id:
+            row = self._durable.read_attempt(attempt_id)
+            if row and row[1].status == "pending":
+                return _ActiveAttempt(*row)
         active = self._active_reservations.get(attempt_id) if attempt_id is not None else None
         if active is None:
             raise BudgetError(
@@ -449,11 +501,15 @@ class BudgetGuard:
         self, request: T, *, provider: str, model_id: str
     ) -> T:
         """Bind one reservation to the outgoing payload before either transport may run."""
-        with self._lock:
+        with self._atomic():
             attempt = self._active_attempt_locked(request.attempt_id)
             reservation = attempt.reservation
             account = self._load_account_locked(reservation.scope_id)
             remaining = self._check_active_locked(account)
+            if self._durable:
+                self._durable.check_binding(
+                    reservation.scope_id, request.job_id, request.asset_id, request.analysis_id
+                )
             if isinstance(request, PlannerRequest):
                 wrong_scope = account.scope_kind != "qa" or account.scope_id != request.question_id
             else:
@@ -486,11 +542,40 @@ class BudgetGuard:
                     )
                 update["images"] = images
             outgoing = request.model_copy(update=update)
-            pending = attempt.pending.model_copy(update={"images_sent": image_count})
+            pending = attempt.pending.model_copy(
+                update={
+                    "images_sent": image_count,
+                    "cost_status": "unknown" if self._durable else attempt.pending.cost_status,
+                }
+            )
             self._store.record_usage(pending, dispatched=True)
             attempt.pending = pending
             attempt.dispatched = True
             return outgoing
+
+    def _already_settled(
+        self,
+        reservation: BudgetReservation,
+        status: str,
+        **fields: object,
+    ) -> bool:
+        if not self._durable:
+            return False
+        row = self._durable.read_attempt(reservation.attempt_id)
+        if row is None or row[1].status == "pending":
+            return False
+        saved, record, _ = row
+        if (
+            saved != reservation
+            or record.status != status
+            or any(
+                getattr(record, name) != value
+                for name, value in fields.items()
+                if value is not None
+            )
+        ):
+            raise BudgetError(ErrorCode.IDEMPOTENCY_CONFLICT, "attempt settlement differs")
+        return True
 
     def settle_success(
         self,
@@ -503,7 +588,17 @@ class BudgetGuard:
         confirmed_cost_usd: float | None = None,
     ) -> None:
         """Atomically validate and settle a provider attempt; errors leave reservation active."""
-        with self._lock:
+        with self._atomic():
+            if self._already_settled(
+                reservation,
+                "succeeded",
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                images_sent=images_sent,
+                confirmed_cost_usd=confirmed_cost_usd,
+                provider_request_id=provider_request_id,
+            ):
+                return
             attempt = self._active_attempt_locked(reservation.attempt_id)
             active = attempt.reservation
             account = self._load_account_locked(active.scope_id)
@@ -627,7 +722,9 @@ class BudgetGuard:
         error_code: ErrorCode,
     ) -> None:
         """Release reservation when a failure occurred strictly BEFORE sending over the wire."""
-        with self._lock:
+        with self._atomic():
+            if self._already_settled(reservation, "not_sent", error_code=error_code.value):
+                return
             attempt = self._active_attempt_locked(reservation.attempt_id)
             active = attempt.reservation
             if attempt.dispatched:
@@ -665,7 +762,15 @@ class BudgetGuard:
         provider_request_id: str | None = None,
     ) -> None:
         """Settle a sent attempt that returned an explicit provider error (attempt/images spent)."""
-        with self._lock:
+        with self._atomic():
+            if self._already_settled(
+                reservation,
+                "failed",
+                error_code=error_code.value,
+                confirmed_cost_usd=confirmed_cost_usd,
+                provider_request_id=provider_request_id,
+            ):
+                return
             attempt = self._active_attempt_locked(reservation.attempt_id)
             active = attempt.reservation
             account = self._load_account_locked(active.scope_id)
@@ -722,7 +827,9 @@ class BudgetGuard:
         error_code: ErrorCode = ErrorCode.EXTERNAL_RESULT_UNKNOWN,
     ) -> None:
         """Settle a sent attempt with unknown remote outcome (never treated as zero or refunded)."""
-        with self._lock:
+        with self._atomic():
+            if self._already_settled(reservation, "unknown", error_code=error_code.value):
+                return
             attempt = self._active_attempt_locked(reservation.attempt_id)
             active = attempt.reservation
             account = self._load_account_locked(active.scope_id)
@@ -766,12 +873,12 @@ class BudgetGuard:
 
     def get_account(self, scope_id: str) -> BudgetAccount:
         """Return current snapshot of the budget account."""
-        with self._lock:
+        with self._atomic():
             return self._load_account_locked(scope_id)
 
     def get_ledger(self, scope_id: str) -> UsageLedger:
         """Aggregate reserved vs settled usage records and overall cost status for the scope."""
-        with self._lock:
+        with self._atomic():
             snapshot = self._store.list_usage_with_dispatch(scope_id)
             records = [rec for rec, _ in snapshot]
             pending_records = [rec for rec in records if rec.status == "pending"]
