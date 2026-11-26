@@ -305,3 +305,28 @@ def test_large_measurement_tolerance_cannot_validate_missing_coverage_or_reverse
     )
     result = build_playback_map(asset, player_id="measured-player", verification=verification)
     assert result.status == "preview_only" and result.offset_ms is None
+
+
+@pytest.mark.parametrize("offsets,expected", [((0, 1000, 2000), None), ((8, 11, 13), 11)])
+def test_playback_constant_offset_has_an_independent_precision_limit(
+    media: dict[str, Path], tmp_path: Path, offsets: tuple[int, ...], expected: int | None
+) -> None:
+    _, asset = _registered(media["F07"], tmp_path)
+    assert asset.duration_ms == 5000 and asset.source_artifact_id
+    positions: tuple[Literal["start", "mid", "end"], ...] = ("start", "mid", "end")
+    records = tuple(
+        PlaybackVerificationRecord(
+            position=position,
+            source_pts_ms=source,
+            proxy_pts_ms=source + offset,
+            observed_offset_ms=offset,
+            tolerance_ms=10000,
+        )
+        for position, source, offset in zip(positions, (0, 2480, 4960), offsets, strict=True)
+    )
+    measured = PlaybackVerification(
+        asset.asset_id, asset.source_artifact_id, asset.sha256, "measured-player", records
+    )
+    result = build_playback_map(asset, player_id="measured-player", verification=measured)
+    assert result.status == ("preview_only" if expected is None else "validated_offset")
+    assert result.offset_ms == expected
