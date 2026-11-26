@@ -12,6 +12,7 @@ import subprocess
 import sys
 import uuid
 from collections.abc import Coroutine, Sequence
+from contextlib import closing
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Literal, cast
@@ -457,7 +458,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             sample_interval_ms=args.sample_interval_ms,
             max_frames=args.max_frames,
         )
-        result = asyncio.run(coro) if args.live else _run_offline_coro(coro)
+        with closing(container):
+            result = asyncio.run(coro) if args.live else _run_offline_coro(coro)
         serialized = _serialize_slice_result(result, q_specs)
         evidence_manifest = container.save_evidence_manifest(result)
         serialized["evidence_manifest"] = evidence_manifest

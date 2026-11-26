@@ -8,17 +8,19 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from importlib.metadata import version
 from pathlib import Path
 from typing import Literal
 
 import yaml
 
 from video_agent.adapters.asr.fake import FakeTranscriber
-from video_agent.adapters.asr.faster_whisper_thin import FasterWhisperThinTranscriber
+from video_agent.adapters.asr.faster_whisper import FasterWhisperTranscriber
 from video_agent.adapters.llm.deepseek import (
     DeepSeekPlannerProvider,
     DeepSeekVisionProvider,
@@ -28,7 +30,13 @@ from video_agent.adapters.llm.fake import FakePlannerProvider, FakeVisionProvide
 from video_agent.adapters.llm.openai_slice import OPENAI_MODEL_ID
 from video_agent.adapters.media.probe import probe_managed
 from video_agent.adapters.media.thin_media import LocalArtifactStore, PyAVMediaBackend
-from video_agent.adapters.storage.filesystem import ManagedSourceStore
+from video_agent.adapters.storage.filesystem import (
+    CatalogArtifactStore,
+    ManagedArtifactFiles,
+    ManagedSourceStore,
+    checked_local_path,
+)
+from video_agent.adapters.storage.media_cache import FileMediaCache, model_directory_digest
 from video_agent.adapters.storage.memory_budget import InMemoryBudgetStore
 from video_agent.application.budget import (
     BudgetedPlannerProvider,
@@ -37,10 +45,13 @@ from video_agent.application.budget import (
     SliceRunLimits,
 )
 from video_agent.application.ingest import AssetImporter
+from video_agent.application.media_cache import CachedMediaBackend, CachedTranscriber
+from video_agent.application.media_timeline import build_playback_map
 from video_agent.application.prompt_registry import PromptRegistry
 from video_agent.application.slice import VerticalSliceResult
 from video_agent.domain.config import AppConfig, PriceConfig, ProviderConfig
-from video_agent.domain.errors import BudgetError, ErrorCode, ProviderError
+from video_agent.domain.errors import BudgetError, ErrorCode, MediaError, ProviderError
+from video_agent.domain.models import VideoAsset
 from video_agent.domain.ports import (
     Clock,
     MediaBackend,
@@ -151,10 +162,16 @@ class SliceContainer:
     vision_provider: VisionProvider
     planner_provider: PlannerProvider
     transcriber: Transcriber
+    release_asr: Callable[[], None] | None = None
+    registered_artifacts: CatalogArtifactStore | None = None
+
+    def close(self) -> None:
+        if self.release_asr is not None:
+            self.release_asr()
 
     def save_evidence_manifest(self, result: VerticalSliceResult) -> str:
         """Publish one reviewable local artifact and return its path relative to data_root."""
-        store = self.artifact_store
+        store = self.registered_artifacts or self.artifact_store
         root = store.root_dir.parent
         artifact_ids = [
             result.asset.source_artifact_id,
@@ -169,6 +186,7 @@ class SliceContainer:
             "analysis_id": result.analysis_id,
             "prompt_bundle_hash": result.prompt_bundle_hash,
             "source_artifact_id": result.asset.source_artifact_id,
+            "playback_timeline_map": build_playback_map(result.asset).model_dump(),
             "audio_artifact_id": result.audio_artifact_id,
             "audio_timeline": result.audio_timeline.model_dump() if result.audio_timeline else None,
             "artifact_paths": {
@@ -230,6 +248,21 @@ def _load_slice_approval(path: Path) -> tuple[bool, SliceRunLimits | None]:
     if not isinstance(limits, dict) or any(v is None for v in limits.values()):
         raise ValueError("slice limits must be a mapping with numeric values")
     return all(flags), SliceRunLimits.model_validate(limits) if limits else None
+
+
+def _ffmpeg_version() -> str:
+    try:
+        proc = subprocess.run(
+            ["ffmpeg", "-version"],
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            close_fds=True,
+            timeout=5,
+            check=True,
+        )
+        return proc.stdout.splitlines()[0].decode("utf-8", "replace")
+    except OSError, subprocess.SubprocessError, IndexError:
+        return "unavailable"
 
 
 def build_slice_container(
@@ -294,8 +327,53 @@ def build_slice_container(
         prices=prices,
         run_limits=run_limits,
     )
-    artifact_store = LocalArtifactStore(data_root / "artifacts")
-    media_backend = PyAVMediaBackend(artifact_store)
+    artifact_store = CatalogArtifactStore(data_root)
+    provider_files = ManagedArtifactFiles(data_root)
+    source_store = ManagedSourceStore(
+        data_root,
+        max_bytes=config.media.max_file_bytes,
+        chunk_bytes=config.ingest.copy_chunk_bytes,
+        quota_bytes=None,
+        progress=None,
+    )
+    importer = AssetImporter(source_store, probe_managed, config.media.max_duration_ms)
+
+    def register(path: str, asset_id: str) -> VideoAsset:
+        selected = Path(path)
+        existing = source_store.existing(
+            selected, asset_id, max_duration_ms=config.media.max_duration_ms
+        )
+        if existing is not None:
+            return existing
+        return importer.import_file(
+            selected, asset_id=asset_id, authorization="local slice user selection"
+        )
+
+    cache = FileMediaCache(checked_local_path(data_root / "media-cache"), artifact_store)
+    media_backend = CachedMediaBackend(
+        PyAVMediaBackend(artifact_store, register=register),
+        cache,
+        frame_profile={
+            "processor": "pts-v2",
+            "stream": "v:0",
+            "rotation": "display-matrix",
+            "crop": "full",
+            "jpeg_quality": 92,
+            "max_long_edge_px": None,
+            "pyav": version("av"),
+            "pillow": version("pillow"),
+        },
+        audio_profile={
+            "processor": "canonical-pcm-v2",
+            "stream": "a:0",
+            "rate": 16000,
+            "channels": 1,
+            "format": "s16le",
+            "ffmpeg": _ffmpeg_version(),
+            "pyav": version("av"),
+        },
+    )
+    release_asr = None
 
     if mode == "live":
         if not cloud_egress_authorized:
@@ -318,7 +396,7 @@ def build_slice_container(
             vision_provider
             if vision_provider is not None
             else DeepSeekVisionProvider(
-                artifact_store=artifact_store,
+                artifact_store=provider_files,
                 model_id=config.provider.model,
                 api_key_env=api_key_env,
                 cloud_upload_enabled=True,
@@ -335,11 +413,40 @@ def build_slice_container(
                 provider_name=config.provider.name,
             )
         )
-        resolved_transcriber: Transcriber = (
-            transcriber
-            if transcriber is not None
-            else FasterWhisperThinTranscriber(artifact_store, model_path=asr_model_path)
-        )
+        resolved_transcriber: Transcriber
+        if transcriber is None:
+            supervised = FasterWhisperTranscriber(
+                artifact_store,
+                model_path=asr_model_path,
+                duration_for_asset=source_store.duration_for_asset,
+            )
+            previous_digest: str | None = None
+
+            def asr_profile() -> dict[str, object]:
+                nonlocal previous_digest
+                if asr_model_path is None:
+                    raise MediaError(ErrorCode.DEPENDENCY_MISSING, "local ASR weights are required")
+                digest = model_directory_digest(asr_model_path)
+                if previous_digest is not None and previous_digest != digest:
+                    supervised.unload_model()
+                previous_digest = digest
+                return {
+                    "backend": "faster-whisper",
+                    "version": version("faster-whisper"),
+                    "runtime": version("ctranslate2"),
+                    "weights": digest,
+                    "device": "cpu",
+                    "compute_type": "int8",
+                    "adapter_version": "faster-whisper-v2",
+                    "word_timestamps": True,
+                    "max_initial_timestamp": 30.0,
+                    "mapping": "canonical-pcm-v2",
+                }
+
+            resolved_transcriber = CachedTranscriber(supervised, cache, profile=asr_profile)
+            release_asr = supervised.close
+        else:
+            resolved_transcriber = transcriber
         resolved_mode: Literal["offline_fake", "live"] = "live"
     else:
         resolved_vision = (
@@ -350,7 +457,15 @@ def build_slice_container(
         resolved_planner = (
             planner_provider if planner_provider is not None else FakePlannerProvider()
         )
-        resolved_transcriber = transcriber if transcriber is not None else FakeTranscriber()
+        resolved_transcriber = (
+            transcriber
+            if transcriber is not None
+            else CachedTranscriber(
+                FakeTranscriber(),
+                cache,
+                profile=lambda: {"backend": "offline_fake", "version": "fake-asr-v1"},
+            )
+        )
         resolved_mode = "offline_fake"
 
     return SliceContainer(
@@ -358,11 +473,13 @@ def build_slice_container(
         config=config,
         prices=prices,
         clock=resolved_clock,
-        artifact_store=artifact_store,
+        artifact_store=provider_files,
         media_backend=media_backend,
         prompt_registry=prompt_registry,
         budget_guard=guard,
         vision_provider=BudgetedVisionProvider(resolved_vision, guard),
         planner_provider=BudgetedPlannerProvider(resolved_planner, guard),
         transcriber=resolved_transcriber,
+        release_asr=release_asr,
+        registered_artifacts=artifact_store,
     )

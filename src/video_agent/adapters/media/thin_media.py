@@ -7,28 +7,25 @@ fabricating timestamps from frame_index/fps, requested_ms, or zero.
 from __future__ import annotations
 
 import hashlib
-import io
 import math
 import os
 import re
-import shutil
-import subprocess
 import uuid
+from collections.abc import Callable
 from fractions import Fraction
 from pathlib import Path
-from typing import Any, Protocol, cast
+from typing import Protocol
 
 import av
-from PIL import Image
 
+from video_agent.adapters.media.ffmpeg_audio import FFmpegAudioExtractor
+from video_agent.adapters.media.pyav_decoder import extract_frames
 from video_agent.domain.errors import ErrorCode, MediaError, StorageError
 from video_agent.domain.models import (
     AudioTimelineMap,
     FrameEvidence,
-    RationalTime,
     TimeRangeMs,
     VideoAsset,
-    compute_canonical_pts_ms,
 )
 
 _SAFE_SEGMENT_RE = re.compile(r"[^A-Za-z0-9_.-]+")
@@ -181,22 +178,6 @@ def _fraction_from_time_base(tb: _RationalLike | None) -> Fraction:
     return Fraction(int(tb.numerator), int(tb.denominator))
 
 
-def _encode_frame_jpeg(frame: av.VideoFrame, *, max_long_edge_px: int | None) -> bytes:
-    frame_any: Any = frame
-    img: Image.Image = frame_any.to_image()
-    if img.mode != "RGB":
-        img = img.convert("RGB")
-    if max_long_edge_px is not None:
-        long_edge = max(img.width, img.height)
-        if long_edge > max_long_edge_px:
-            scale = max_long_edge_px / long_edge
-            new_size = (max(1, round(img.width * scale)), max(1, round(img.height * scale)))
-            img = img.resize(new_size, Image.Resampling.LANCZOS)
-    buf = io.BytesIO()
-    img.save(buf, format="JPEG", quality=92)
-    return buf.getvalue()
-
-
 class PyAVMediaBackend:
     """Thin MediaBackend using PyAV streaming decode and FFmpeg audio extraction."""
 
@@ -205,11 +186,16 @@ class PyAVMediaBackend:
         artifact_store: LocalArtifactStore,
         *,
         max_long_edge_px: int | None = None,
+        register: Callable[[str, str], VideoAsset] | None = None,
     ) -> None:
         self._artifact_store = artifact_store
         self._max_long_edge_px = max_long_edge_px
+        self._register = register
+        self._audio = FFmpegAudioExtractor(artifact_store)
 
     def probe_video(self, source_path: str, *, asset_id: str) -> VideoAsset:
+        if self._register is not None:
+            return self._register(source_path, asset_id)
         src = Path(source_path)
         source_artifact_id, sha256, size_bytes = self._artifact_store.put_file_copy(
             asset_id,
@@ -303,300 +289,13 @@ class PyAVMediaBackend:
         *,
         range_ms: TimeRangeMs,
     ) -> list[FrameEvidence]:
-        if asset.source_artifact_id is None:
-            raise MediaError(
-                ErrorCode.CORRUPT_MEDIA,
-                f"asset '{asset.asset_id}' has no bound source_artifact_id",
-            )
-        try:
-            range_ms.validate_within(asset.duration_ms)
-        except ValueError as exc:
-            raise MediaError(ErrorCode.INVALID_TIME_RANGE, str(exc)) from exc
-
-        if not requested_times_ms:
-            return []
-
-        for req in requested_times_ms:
-            if isinstance(req, bool) or not isinstance(req, int) or req < 0:
-                raise MediaError(
-                    ErrorCode.INVALID_TIMESTAMP,
-                    f"requested_ms must be a non-negative strict int, got {req!r}",
-                )
-            if req < range_ms.start_ms or req >= range_ms.end_ms:
-                raise MediaError(
-                    ErrorCode.NO_FRAME_IN_RANGE,
-                    (
-                        f"requested_ms={req} is outside half-open range "
-                        f"[{range_ms.start_ms}, {range_ms.end_ms})"
-                    ),
-                )
-
-        managed_path = self._artifact_store.resolve_path(asset.source_artifact_id)
-        indexed_requests = sorted(enumerate(requested_times_ms), key=lambda item: item[1])
-        results: list[FrameEvidence | None] = [None] * len(requested_times_ms)
-        pending_cursor = 0
-
-        try:
-            with av.open(str(managed_path)) as container:
-                video_streams = list(container.streams.video)
-                if not video_streams:
-                    raise MediaError(
-                        ErrorCode.CORRUPT_MEDIA,
-                        f"no video stream in managed source for '{asset.asset_id}'",
-                    )
-                v_stream = video_streams[0]
-                origin_pts: int | None = None
-                origin_tb: Fraction | None = None
-                cached_artifact_by_pts: dict[int, str] = {}
-
-                for frame in container.decode(v_stream):
-                    if frame.pts is None:
-                        raise MediaError(
-                            ErrorCode.TIMESTAMP_UNRELIABLE,
-                            f"decoded video frame missing PTS in '{asset.asset_id}'",
-                        )
-                    raw_pts = int(frame.pts)
-                    frame_tb = _fraction_from_time_base(frame.time_base or v_stream.time_base)
-                    if origin_pts is None or origin_tb is None:
-                        origin_pts = raw_pts
-                        origin_tb = frame_tb
-
-                    exact_ms = (
-                        Fraction(raw_pts) * frame_tb - Fraction(origin_pts) * origin_tb
-                    ) * 1000
-                    if exact_ms < 0:
-                        raise MediaError(
-                            ErrorCode.TIMESTAMP_UNRELIABLE,
-                            f"non-monotonic negative canonical frame PTS in '{asset.asset_id}'",
-                        )
-
-                    while pending_cursor < len(indexed_requests):
-                        orig_idx, req_ms = indexed_requests[pending_cursor]
-                        if exact_ms < Fraction(req_ms, 1):
-                            break
-
-                        # First decoded frame with exact_ms >= req_ms MUST still fall inside
-                        # half-open [range_ms.start_ms, range_ms.end_ms) and [0, duration_ms).
-                        if exact_ms >= Fraction(range_ms.end_ms, 1) or exact_ms >= Fraction(
-                            asset.duration_ms, 1
-                        ):
-                            raise MediaError(
-                                ErrorCode.NO_FRAME_IN_RANGE,
-                                (
-                                    f"no frame found for requested_ms={req_ms} within "
-                                    f"[{range_ms.start_ms}, {range_ms.end_ms}); next frame "
-                                    f"is at {float(exact_ms):.2f}ms"
-                                ),
-                            )
-
-                        try:
-                            actual_pts_ms = compute_canonical_pts_ms(
-                                raw_pts=raw_pts,
-                                time_base_num=frame_tb.numerator,
-                                time_base_den=frame_tb.denominator,
-                                origin_pts=origin_pts,
-                                origin_time_base_num=origin_tb.numerator,
-                                origin_time_base_den=origin_tb.denominator,
-                                duration_ms=asset.duration_ms,
-                                range_ms=range_ms,
-                            )
-                        except ValueError as exc:
-                            code = (
-                                ErrorCode.NO_FRAME_IN_RANGE
-                                if ErrorCode.NO_FRAME_IN_RANGE.value in str(exc)
-                                else ErrorCode.INVALID_TIMESTAMP
-                            )
-                            raise MediaError(code, str(exc)) from exc
-
-                        artifact_id = cached_artifact_by_pts.get(raw_pts)
-                        if artifact_id is None:
-                            jpeg_bytes = _encode_frame_jpeg(
-                                frame, max_long_edge_px=self._max_long_edge_px
-                            )
-                            artifact_id = self._artifact_store.put_bytes(
-                                asset.asset_id,
-                                "frame",
-                                jpeg_bytes,
-                                suffix=".jpg",
-                            )
-                            cached_artifact_by_pts[raw_pts] = artifact_id
-
-                        evidence_id = f"ev_frame_{orig_idx + 1:04d}_{actual_pts_ms}ms"
-                        results[orig_idx] = FrameEvidence(
-                            evidence_id=evidence_id,
-                            asset_id=asset.asset_id,
-                            artifact_id=artifact_id,
-                            requested_ms=req_ms,
-                            actual_pts_ms=actual_pts_ms,
-                            duration_ms=asset.duration_ms,
-                            raw_pts=raw_pts,
-                            time_base=RationalTime(
-                                numerator=frame_tb.numerator,
-                                denominator=frame_tb.denominator,
-                            ),
-                            origin_pts=origin_pts,
-                            origin_time_base=RationalTime(
-                                numerator=origin_tb.numerator,
-                                denominator=origin_tb.denominator,
-                            ),
-                        )
-                        pending_cursor += 1
-
-                    if pending_cursor >= len(indexed_requests):
-                        break
-                    if exact_ms >= Fraction(range_ms.end_ms, 1):
-                        break
-        except MediaError:
-            raise
-        except (av.FFmpegError, OSError, ValueError) as exc:
-            raise MediaError(
-                ErrorCode.CORRUPT_MEDIA,
-                f"frame extraction failed for '{asset.asset_id}': {exc}",
-            ) from exc
-
-        if pending_cursor < len(indexed_requests):
-            _, missing_req = indexed_requests[pending_cursor]
-            raise MediaError(
-                ErrorCode.NO_FRAME_IN_RANGE,
-                (
-                    f"stream ended before finding frame for requested_ms={missing_req} "
-                    f"within [{range_ms.start_ms}, {range_ms.end_ms})"
-                ),
-            )
-
-        return [cast(FrameEvidence, item) for item in results]
+        return extract_frames(
+            self._artifact_store,
+            asset,
+            requested_times_ms,
+            range_ms=range_ms,
+            max_long_edge_px=self._max_long_edge_px,
+        )
 
     def extract_audio(self, asset: VideoAsset) -> tuple[str, AudioTimelineMap]:
-        if not asset.has_audio:
-            raise MediaError(
-                ErrorCode.NO_AUDIO_STREAM,
-                f"asset '{asset.asset_id}' does not contain an audio stream",
-            )
-        if asset.source_artifact_id is None:
-            raise MediaError(
-                ErrorCode.CORRUPT_MEDIA,
-                f"asset '{asset.asset_id}' has no bound source_artifact_id",
-            )
-
-        managed_path = self._artifact_store.resolve_path(asset.source_artifact_id)
-        try:
-            with av.open(str(managed_path)) as container:
-                video_streams = list(container.streams.video)
-                audio_streams = list(container.streams.audio)
-                if not audio_streams:
-                    raise MediaError(
-                        ErrorCode.NO_AUDIO_STREAM,
-                        f"container for '{asset.asset_id}' has no audio stream",
-                    )
-                if not video_streams:
-                    raise MediaError(
-                        ErrorCode.CORRUPT_MEDIA,
-                        f"container for '{asset.asset_id}' has no video stream",
-                    )
-
-                v_stream = video_streams[0]
-                origin_pts: int | None = None
-                origin_tb: Fraction | None = None
-                for v_frame in container.decode(v_stream):
-                    if v_frame.pts is None:
-                        raise MediaError(
-                            ErrorCode.TIMESTAMP_UNRELIABLE,
-                            f"video origin frame missing PTS in '{asset.asset_id}'",
-                        )
-                    origin_pts = int(v_frame.pts)
-                    origin_tb = _fraction_from_time_base(v_frame.time_base or v_stream.time_base)
-                    break
-
-                if origin_pts is None or origin_tb is None:
-                    raise MediaError(
-                        ErrorCode.CORRUPT_MEDIA,
-                        f"no decodable video frame to establish origin in '{asset.asset_id}'",
-                    )
-
-                container.seek(0)
-                a_stream = audio_streams[0]
-                first_audio_pts: int | None = None
-                first_audio_tb: Fraction | None = None
-                for a_frame in container.decode(a_stream):
-                    if a_frame.pts is None:
-                        continue
-                    first_audio_pts = int(a_frame.pts)
-                    first_audio_tb = _fraction_from_time_base(
-                        a_frame.time_base or a_stream.time_base
-                    )
-                    break
-
-                if first_audio_pts is None or first_audio_tb is None:
-                    raise MediaError(
-                        ErrorCode.CORRUPT_MEDIA,
-                        f"no decodable audio frames with PTS in '{asset.asset_id}'",
-                    )
-
-                audio_offset_exact_ms = (
-                    Fraction(first_audio_pts) * first_audio_tb - Fraction(origin_pts) * origin_tb
-                ) * 1000
-                audio_offset_ms = math.floor(audio_offset_exact_ms)
-        except MediaError:
-            raise
-        except (av.FFmpegError, OSError, ValueError) as exc:
-            raise MediaError(
-                ErrorCode.CORRUPT_MEDIA,
-                f"failed reading audio timeline for '{asset.asset_id}': {exc}",
-            ) from exc
-
-        ffmpeg_bin = shutil.which("ffmpeg")
-        if ffmpeg_bin is None:
-            raise MediaError(
-                ErrorCode.DEPENDENCY_MISSING,
-                "ffmpeg executable not found on PATH",
-            )
-
-        proc = subprocess.run(
-            [
-                ffmpeg_bin,
-                "-hide_banner",
-                "-loglevel",
-                "error",
-                "-i",
-                str(managed_path),
-                "-vn",
-                "-ac",
-                "1",
-                "-ar",
-                "16000",
-                "-c:a",
-                "pcm_s16le",
-                "-f",
-                "wav",
-                "pipe:1",
-            ],
-            check=False,
-            capture_output=True,
-            close_fds=True,
-            timeout=120,
-        )
-        if proc.returncode != 0 or len(proc.stdout) < 44 or proc.stdout[:4] != b"RIFF":
-            stderr_msg = proc.stderr.decode("utf-8", errors="replace").strip()
-            raise MediaError(
-                ErrorCode.CORRUPT_MEDIA,
-                f"ffmpeg audio extraction failed (exit={proc.returncode}): {stderr_msg}",
-            )
-
-        audio_artifact_id = self._artifact_store.put_bytes(
-            asset.asset_id,
-            "audio",
-            proc.stdout,
-            suffix=".wav",
-        )
-        audio_timeline = AudioTimelineMap(
-            origin_pts=origin_pts,
-            origin_time_base=RationalTime(
-                numerator=origin_tb.numerator,
-                denominator=origin_tb.denominator,
-            ),
-            audio_offset_ms=audio_offset_ms,
-            extracted_start_ms=0,
-            leading_silence_padded=False,
-            vad_filter=False,
-        )
-        return audio_artifact_id, audio_timeline
+        return self._audio.extract_audio(asset)

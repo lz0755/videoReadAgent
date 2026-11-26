@@ -17,6 +17,7 @@ import re
 import tempfile
 import uuid
 from collections.abc import Coroutine
+from contextlib import closing
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -730,89 +731,94 @@ def run_slice_manifest(
     questions_report: list[dict[str, Any]] = []
     run_id = uuid.uuid4().hex
 
-    for entry in entries:
-        video_id = str(entry["video_id"])
-        source_file = resolved_repo_root / str(entry["relative_path"])
-        pinned_questions = grouped[video_id]
-        q_specs = [
-            SliceQuestionSpec(
-                question_id=str(q["question_id"]),
-                query_text=str(q["question_text"]),
-            )
-            for q in pinned_questions
-        ]
-        analysis_id = f"an_slice_{video_id}_{run_id}"
-        start_time = container.clock.monotonic()
-        coro = run_vertical_slice(
-            str(source_file),
-            asset_id=f"asset_{video_id}",
-            analysis_id=analysis_id,
-            questions=q_specs,
-            media_backend=container.media_backend,
-            transcriber=container.transcriber,
-            vision_provider=container.vision_provider,
-            planner_provider=container.planner_provider,
-            budget_guard=container.budget_guard,
-            prompt_registry=container.prompt_registry,
-            config=container.config,
-            clock=container.clock,
-            provider_mode=execution_mode,
-            collect_question_errors=True,
-            sample_interval_ms=sample_interval_ms,
-            max_frames=max_frames,
-        )
-        result: VerticalSliceResult | None = None
-        analysis_error: str | None = None
-        try:
-            result = asyncio.run(coro) if mode == "live" else _run_offline_coro(coro)
-        except Exception as exc:
-            analysis_error = slice_error_code(exc)
-
-        if result is None:
-            video: dict[str, Any] = {
-                "video_id": video_id,
-                "analysis_id": analysis_id,
-                "sha256": entry["sha256"],
-                "execution_status": "failed",
-                "error_code": analysis_error,
-                "latency_ms": max(0, int((container.clock.monotonic() - start_time) * 1000)),
-                "analysis_usage": _extract_ledger_metrics(
-                    container.budget_guard.get_ledger(analysis_id)
-                ),
-            }
-        else:
-            video = _summarize_video_result(entry, result)
-            video["execution_status"] = "partial" if result.question_errors else "completed"
-            try:
-                video["evidence_manifest"] = container.save_evidence_manifest(result)
-            except Exception as exc:
-                video.update(execution_status="failed", error_code=slice_error_code(exc))
-        videos_report.append(video)
-
-        responses = (
-            {qr.question.question_id: qr for qr in result.question_results} if result else {}
-        )
-        for meta in pinned_questions:
-            qid = str(meta["question_id"])
-            response = responses.get(qid)
-            failure = result.question_errors.get(qid) if result else None
-            if response is not None:
-                status, error_code, hits = "completed", None, len(response.search_hits)
-            elif failure is not None:
-                status, error_code, hits = "failed", failure.error_code, len(failure.search_hits)
-            else:
-                status, error_code, hits = "not_run", analysis_error or "INTERNAL_ERROR", 0
-            questions_report.append(
-                _question_row(
-                    meta,
-                    execution_mode,
-                    response,
-                    status,
-                    error_code,
-                    hits,
-                    container.budget_guard.get_ledger(qid),
+    with closing(container):
+        for entry in entries:
+            video_id = str(entry["video_id"])
+            source_file = resolved_repo_root / str(entry["relative_path"])
+            pinned_questions = grouped[video_id]
+            q_specs = [
+                SliceQuestionSpec(
+                    question_id=str(q["question_id"]),
+                    query_text=str(q["question_text"]),
                 )
+                for q in pinned_questions
+            ]
+            analysis_id = f"an_slice_{video_id}_{run_id}"
+            start_time = container.clock.monotonic()
+            coro = run_vertical_slice(
+                str(source_file),
+                asset_id=f"asset_{video_id}",
+                analysis_id=analysis_id,
+                questions=q_specs,
+                media_backend=container.media_backend,
+                transcriber=container.transcriber,
+                vision_provider=container.vision_provider,
+                planner_provider=container.planner_provider,
+                budget_guard=container.budget_guard,
+                prompt_registry=container.prompt_registry,
+                config=container.config,
+                clock=container.clock,
+                provider_mode=execution_mode,
+                collect_question_errors=True,
+                sample_interval_ms=sample_interval_ms,
+                max_frames=max_frames,
             )
+            result: VerticalSliceResult | None = None
+            analysis_error: str | None = None
+            try:
+                result = asyncio.run(coro) if mode == "live" else _run_offline_coro(coro)
+            except Exception as exc:
+                analysis_error = slice_error_code(exc)
+
+            if result is None:
+                video: dict[str, Any] = {
+                    "video_id": video_id,
+                    "analysis_id": analysis_id,
+                    "sha256": entry["sha256"],
+                    "execution_status": "failed",
+                    "error_code": analysis_error,
+                    "latency_ms": max(0, int((container.clock.monotonic() - start_time) * 1000)),
+                    "analysis_usage": _extract_ledger_metrics(
+                        container.budget_guard.get_ledger(analysis_id)
+                    ),
+                }
+            else:
+                video = _summarize_video_result(entry, result)
+                video["execution_status"] = "partial" if result.question_errors else "completed"
+                try:
+                    video["evidence_manifest"] = container.save_evidence_manifest(result)
+                except Exception as exc:
+                    video.update(execution_status="failed", error_code=slice_error_code(exc))
+            videos_report.append(video)
+
+            responses = (
+                {qr.question.question_id: qr for qr in result.question_results} if result else {}
+            )
+            for meta in pinned_questions:
+                qid = str(meta["question_id"])
+                response = responses.get(qid)
+                failure = result.question_errors.get(qid) if result else None
+                if response is not None:
+                    status, error_code, hits = "completed", None, len(response.search_hits)
+                elif failure is not None:
+                    status, error_code, hits = (
+                        "failed",
+                        failure.error_code,
+                        len(failure.search_hits),
+                    )
+                else:
+                    status, error_code, hits = "not_run", analysis_error or "INTERNAL_ERROR", 0
+                questions_report.append(
+                    _question_row(
+                        meta,
+                        execution_mode,
+                        response,
+                        status,
+                        error_code,
+                        hits,
+                        container.budget_guard.get_ledger(qid),
+                    )
+                )
 
     usage = [v["analysis_usage"] for v in videos_report] + [q["qa_usage"] for q in questions_report]
     usage_totals = {

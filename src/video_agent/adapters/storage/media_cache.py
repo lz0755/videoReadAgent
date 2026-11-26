@@ -8,7 +8,7 @@ from contextlib import suppress
 from pathlib import Path
 from typing import Literal
 
-from video_agent.adapters.media.thin_media import LocalArtifactStore, _sanitize_segment
+from video_agent.adapters.media.thin_media import LocalArtifactStore
 from video_agent.domain.errors import ErrorCode, MediaError, StorageError
 
 _MAX_RECORD_BYTES = 16 * 1024 * 1024
@@ -73,9 +73,7 @@ class FileMediaCache:
     def digest(self, artifact_id: str, *, asset_id: str | None = None) -> str:
         try:
             path = self._artifact_path(artifact_id)
-            if asset_id is not None and path.parent != self._artifacts.root_dir / _sanitize_segment(
-                asset_id
-            ):
+            if asset_id is not None and path.parent != self._artifacts.root_dir / asset_id:
                 raise MediaError(
                     ErrorCode.CROSS_ASSET_REFERENCE, "artifact belongs to another asset"
                 )
@@ -95,9 +93,8 @@ class FileMediaCache:
     def _verified(self, artifact_id: str, sha256: str, owner: str) -> Path | None:
         try:
             path = self._artifact_path(artifact_id)
-            if (
-                path.parent == self._artifacts.root_dir / _sanitize_segment(owner)
-                and _checksum(path) == sha256
+            if path.parent == self._artifacts.root_dir / owner and self._artifacts.verify_hash(
+                artifact_id, sha256
             ):
                 return path
         except FileNotFoundError, StorageError:
