@@ -6,9 +6,11 @@ Depends exclusively on domain contracts, policies, pure tokenizer, and injected 
 from __future__ import annotations
 
 import json
+import re
 import uuid
 from dataclasses import dataclass, field
 from datetime import UTC
+from decimal import Decimal
 from typing import Literal
 
 from video_agent.application.budget import BudgetGuard
@@ -30,6 +32,7 @@ from video_agent.domain.models import (
     Observation,
     Question,
     RequestBudget,
+    SupportKind,
     TimeRangeMs,
     TranscriptSegment,
     UsageLedger,
@@ -267,6 +270,7 @@ class _IndexedDoc:
     asset_id: str
     analysis_id: str
     source_kind: Literal["transcript", "observation"]
+    support_kind: SupportKind
     source_id: str
     text: str
     normalized_text: str
@@ -277,6 +281,60 @@ class _IndexedDoc:
 
 def _ranges_overlap(a: TimeRangeMs, b: TimeRangeMs) -> bool:
     return a.start_ms < b.end_ms and b.start_ms < a.end_ms
+
+
+_SECONDS = r"(?:seconds?|secs?|s)(?![a-z])|秒"
+_NUMBER = r"[0-9]{1,9}(?:\.[0-9]{1,3})?"
+_LOCATION = re.compile(
+    rf"(?:(?<![a-z0-9])(?P<cue>at|around|near|between|from)\b\s*"
+    rf"(?:(?:approximately|about)\s+)?|(?:在|从|第)\s*(?:大约|约)?)"
+    rf"\s*(?P<first>{_NUMBER})\s*"
+    rf"(?:(?:(?:{_SECONDS})\s*)?(?:[-–—]|\bto\b|\band\b|至|到|和)\s*"
+    rf"(?P<last>{_NUMBER})\s*)?(?:{_SECONDS})"
+)
+_DURATION_PREFIX = re.compile(r"\b(?:for|lasts?|lasted|takes?|took|wait(?:s|ed|ing)?)\s*$")
+_DURATION_SUFFIX = re.compile(r"\s*(?:(?:之|以)?内|long\b|in length\b)")
+_NEARBY_MS = 1000
+
+
+def _question_times(query: str) -> tuple[int, int] | None:
+    """Recognize explicit second-based locations in the question, including decimal seconds."""
+    for match in _LOCATION.finditer(query):
+        if _DURATION_SUFFIX.match(query, match.end()):
+            continue
+        if match["cue"] in {"around", "near", "between"} and _DURATION_PREFIX.search(
+            query[: match.start()]
+        ):
+            continue
+        first = int(Decimal(match["first"]) * 1000)
+        last = int(Decimal(match["last"] or match["first"]) * 1000)
+        return min(first, last), max(first, last)
+    return None
+
+
+type _ScoredDoc = tuple[float, int, _IndexedDoc]
+
+
+def _nearby_sources(ranked: list[_ScoredDoc], anchors: tuple[int, int]) -> list[_ScoredDoc]:
+    """Keep a view and an original utterance at each requested endpoint within the hit budget."""
+
+    def nearest_at(anchor: int) -> list[_ScoredDoc]:
+        def distance(item: _ScoredDoc) -> tuple[int, float]:
+            span = item[2].time_range
+            return max(span.start_ms - anchor, anchor - (span.end_ms - 1), 0), -item[0]
+
+        pictures = (hit for hit in ranked if hit[2].support_kind == "observed")
+        speech = (hit for hit in ranked if hit[2].source_kind == "transcript")
+        nearest = [min(group, key=distance, default=None) for group in (pictures, speech)]
+        return sorted((hit for hit in nearest if hit is not None), key=distance)
+
+    # First cover both times, then fill in the second modality and other lexical matches.
+    by_anchor = [nearest_at(anchor) for anchor in dict.fromkeys(anchors)]
+    order = [hits[i] for i in range(2) for hits in by_anchor if i < len(hits)]
+    unique: dict[str, _ScoredDoc] = {}
+    for item in order + ranked:
+        unique.setdefault(item[2].doc_id, item)
+    return list(unique.values())
 
 
 class SliceSearchIndex:
@@ -307,6 +365,7 @@ class SliceSearchIndex:
                     asset_id=asset_id,
                     analysis_id=analysis_id,
                     source_kind="transcript",
+                    support_kind="heard",
                     source_id=seg.evidence_id,
                     text=seg.text,
                     normalized_text=seg.text.lower(),
@@ -338,6 +397,7 @@ class SliceSearchIndex:
                     asset_id=asset_id,
                     analysis_id=analysis_id,
                     source_kind="observation",
+                    support_kind=obs.kind,
                     source_id=obs.observation_id,
                     text=obs.text,
                     normalized_text=obs.text.lower(),
@@ -358,6 +418,16 @@ class SliceSearchIndex:
     ) -> list[SearchHit]:
         normalized_query, query_tokens, needs_fallback = validate_search_query(query)
         clamped_limit = max(1, min(10, limit))
+        anchors = _question_times(normalized_query)
+        if anchors is not None:
+            start = max(0, anchors[0] - _NEARBY_MS)
+            end = anchors[1] + _NEARBY_MS + 1
+            if time_range is not None:
+                start = max(start, time_range.start_ms)
+                end = min(end, time_range.end_ms)
+            if start >= end:
+                return []
+            time_range = TimeRangeMs(start_ms=start, end_ms=end)
 
         # Scope strictly to (asset_id, analysis_id) BEFORE ranking/limiting.
         scoped = [
@@ -368,7 +438,7 @@ class SliceSearchIndex:
             and (time_range is None or _ranges_overlap(doc.time_range, time_range))
         ]
 
-        scored: list[tuple[float, int, _IndexedDoc]] = []
+        scored: list[_ScoredDoc] = []
         if needs_fallback:
             for doc in scoped[:DEFAULT_SUBSTRING_FALLBACK_SCAN_LIMIT]:
                 if normalized_query in doc.normalized_text:
@@ -377,13 +447,15 @@ class SliceSearchIndex:
             query_set = frozenset(query_tokens)
             for doc in scoped:
                 matched = query_set & doc.tokens
-                if not matched:
+                if not matched and anchors is None:
                     continue
                 coverage = len(matched) / len(query_set)
                 score = coverage + 0.05 * len(matched)
                 scored.append((score, doc.time_range.start_ms, doc))
 
         scored.sort(key=lambda item: (-item[0], item[1]))
+        if anchors is not None:
+            scored = _nearby_sources(scored, anchors)
         return [
             SearchHit(
                 doc_id=doc.doc_id,

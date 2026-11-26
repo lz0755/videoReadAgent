@@ -4,8 +4,8 @@
     {
       "name": "vision_observe",
       "relative_path": "vision/observe.jinja2",
-      "label": "vision_v1",
-      "template_sha256": "b8e6365335ade91ae6256cc505344368203cc9cd387fe078c8a0d99ba7413d81"
+      "label": "vision_v2",
+      "template_sha256": "167e2840e18c3a830067cd6c50506b6e2809052ade75082392cb7196cd2efc4b"
     },
     {
       "name": "summary_summarize",
