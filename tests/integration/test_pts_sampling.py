@@ -60,6 +60,9 @@ def _frames_with_pts(path: Path, expr: str) -> list[Fraction]:
         "0",
         "-g",
         "2",
+        # The 2 fps source supplies 500 ms per frame, in 1/10000 s packet ticks.
+        "-bsf:v",
+        "setts=duration=5000",
     ]
     if path.suffix == ".mp4":
         args.extend(["-video_track_timescale", "10000"])
