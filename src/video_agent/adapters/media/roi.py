@@ -28,13 +28,13 @@ class CatalogImages:
         self._db = db_path
         self._store = store
 
-    def read(self, asset_id: str, artifact_id: str) -> bytes:
+    def read(self, asset_id: str, artifact_id: str, *, parent: bool = False) -> bytes:
         with closing(connect_sqlite(self._db)) as conn:
             row = conn.execute(
                 "SELECT kind,size_bytes,sha256 FROM artifacts WHERE artifact_id=? AND asset_id=?",
                 (artifact_id, asset_id),
             ).fetchone()
-        if row is None or row[0] not in ("frame", "crop"):
+        if row is None or row[0] not in (("frame",) if parent else ("frame", "crop")):
             raise MediaError(ErrorCode.CROSS_ASSET_REFERENCE, "unbound image artifact")
         if not 0 < row[1] <= 32 * 1024**2:
             raise MediaError(ErrorCode.CAPABILITY_MISMATCH, "encoded image exceeds byte limit")
@@ -53,7 +53,7 @@ class CatalogImages:
     ) -> PreparedFrame:
         if frame.crop is not None or not re.fullmatch(r"full|r[1-3]c[1-3]", region_id):
             raise ValueError("expected a full parent frame and a named grid region")
-        raw = self.read(frame.asset_id, frame.artifact_id)
+        raw = self.read(frame.asset_id, frame.artifact_id, parent=True)
         with Image.open(io.BytesIO(raw)) as pixels:
             width, height = pixels.size
             if max(width, height) > 8192 or pixels.format not in {"JPEG", "PNG", "WEBP"}:
