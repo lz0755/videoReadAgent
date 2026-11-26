@@ -8,11 +8,14 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 import subprocess
 from pathlib import Path
 
 import pytest
 
+from experiments.media_probe import MediaProbeError, probe_media_timeline
+from tests.fixtures import media_factory
 from tests.fixtures.media_factory import (
     AUDIO_OFFSET_TARGET_MS,
     AUDIO_STREAM_PTS_TOLERANCE_MS,
@@ -141,3 +144,78 @@ def test_repo_f01_f04_manifest_is_valid_and_sanitized() -> None:
         assert entry["passed"] is True
         assert re.fullmatch(r"[0-9a-f]{64}", entry["sha256"])
         assert entry["ffmpeg_version"].startswith("ffmpeg version")
+
+
+@pytest.fixture(scope="module")
+def p0_suite(tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, dict[str, object]]:
+    folder = tmp_path_factory.mktemp("p0")
+    manifest = folder / "self-check.json"
+    assert (
+        media_factory._cli(
+            ["--suite", "p0", "--output-dir", str(folder), "--manifest-out", str(manifest)]
+        )
+        == 0
+    )
+    raw = manifest.read_text(encoding="utf-8")
+    assert not PRIVATE_PATH_PATTERN.search(raw)
+    return folder, json.loads(raw)["fixtures"]
+
+
+def test_p0_self_check_measures_all_eight(p0_suite: tuple[Path, dict[str, object]]) -> None:
+    folder, entries = p0_suite
+    assert set(entries) == {f"F{i:02}" for i in range(1, 9)}
+    for entry in entries.values():
+        assert isinstance(entry, dict)
+        assert entry["passed"] and entry["assertions"] and all(entry["assertions"].values())
+        path = folder / entry["file_path"]
+        assert path.stat().st_size == entry["byte_size"] > 0
+        assert entry["sha256"] == media_factory.compute_sha256(path)
+        assert entry["command"] and entry["ffmpeg_version"] and entry["target_property"]
+        assert entry["observations"]["pyav"]
+    observed = {
+        fid: entry["observations"] for fid, entry in entries.items() if isinstance(entry, dict)
+    }
+    assert observed["F01"]["visible_marker_seconds"] == [0, 1, 2]
+    assert observed["F05"]["rotation_degrees"] == 90
+    assert observed["F05"]["display_marker_corner"] == "bottom_left"
+    assert observed["F06"]["audio_stream_count"] == 0
+    assert observed["F07"]["keyframe_times_ms"][:2] == [0, 2000]
+    assert observed["F07"]["b_frames"] > 0
+    assert observed["F07"]["seek_landed_ms"] == 2000
+    assert observed["F07"]["sequential_selected_ms"] == observed["F07"]["seek_selected_ms"] == 3040
+    assert 0 < observed["F08"]["truncation_offset"] < observed["F08"]["original_bytes"]
+    assert observed["F08"]["missing_moov"] and observed["F08"]["pyav"] == "InvalidDataError"
+
+
+@pytest.mark.parametrize("fixture_id", ["F05", "F06", "F07", "F08"])
+def test_p0_rejects_impostor(
+    p0_suite: tuple[Path, dict[str, object]], fixture_id: str, tmp_path: Path
+) -> None:
+    folder, entries = p0_suite
+    baseline = entries["F01"]
+    assert isinstance(baseline, dict)
+    for fid in ("F07", fixture_id):
+        entry = entries[fid]
+        assert isinstance(entry, dict)
+        source_name = baseline["file_path"] if fid == fixture_id else entry["file_path"]
+        shutil.copyfile(folder / source_name, tmp_path / entry["file_path"])
+    with pytest.raises(FixtureSelfCheckError, match=fixture_id):
+        media_factory._cli(["--check-fixture", fixture_id, "--output-dir", str(tmp_path)])
+
+
+def test_probe_reports_measured_display_and_gop(p0_suite: tuple[Path, dict[str, object]]) -> None:
+    folder, entries = p0_suite
+    summaries = {}
+    for fid in ("F05", "F06", "F07", "F08"):
+        entry = entries[fid]
+        assert isinstance(entry, dict) and entry["passed"]
+        path = folder / entry["file_path"]
+        if fid == "F08":
+            with pytest.raises(MediaProbeError):
+                probe_media_timeline(path)
+        else:
+            summaries[fid] = probe_media_timeline(path).to_dict()
+    assert summaries["F05"].get("rotation_degrees") == 90
+    assert summaries["F06"]["has_audio"] is False
+    assert summaries["F07"].get("keyframe_times_ms", [])[:2] == [0, 2000]
+    assert summaries["F07"].get("b_frames", 0) > 0

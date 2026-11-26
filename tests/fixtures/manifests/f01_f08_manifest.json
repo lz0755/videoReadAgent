@@ -1,0 +1,532 @@
+{
+  "schema_version": "m2.0-fixture-manifest-v1",
+  "generated_at_utc": "2026-11-26T05:09:16.500839+00:00",
+  "ffmpeg_version": "ffmpeg version 8.1.2-essentials_build-www.gyan.dev Copyright (c) 2000-2026 the FFmpeg developers",
+  "tolerances": {
+    "audio_offset_target_ms": 200,
+    "audio_stream_pts_tolerance_ms": 30,
+    "audio_tone_onset_tolerance_ms": 20,
+    "nonzero_pts_target_ms": 5000,
+    "nonzero_pts_min_ms": 1000
+  },
+  "fixtures": {
+    "F01": {
+      "fixture_id": "F01",
+      "passed": true,
+      "file_path": "f01_cfr.mp4",
+      "sha256": "c45a51881d0d72c3abb4efece0d3450475822a316bb28c0f77fbab1a7fff9896",
+      "byte_size": 154304,
+      "ffmpeg_version": "ffmpeg version 8.1.2-essentials_build-www.gyan.dev Copyright (c) 2000-2026 the FFmpeg developers",
+      "command": [
+        "ffmpeg",
+        "-y",
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-f",
+        "lavfi",
+        "-i",
+        "testsrc2=size=320x240:rate=25:duration=3",
+        "-f",
+        "lavfi",
+        "-i",
+        "sine=frequency=440:sample_rate=48000:duration=3",
+        "-c:v",
+        "libx264",
+        "-pix_fmt",
+        "yuv420p",
+        "-g",
+        "25",
+        "-c:a",
+        "aac",
+        "-ar",
+        "48000",
+        "-b:a",
+        "128k",
+        "-vf",
+        "drawbox=x=0:y=0:w=96:h=24:color=black:t=fill,drawbox=x=8:y=4:w=16:h=16:color=white:t=fill:enable='gte(t,0)*lt(t,1)',drawbox=x=40:y=4:w=16:h=16:color=white:t=fill:enable='gte(t,1)*lt(t,2)',drawbox=x=72:y=4:w=16:h=16:color=white:t=fill:enable='gte(t,2)*lt(t,3)'",
+        "f01_cfr.mp4"
+      ],
+      "target_property": "Normal 25fps CFR with visible timecode and 0ms aligned audio",
+      "observations": {
+        "video_codec": "h264",
+        "width": 320,
+        "height": 240,
+        "video_time_base": "1/12800",
+        "video_frame_count": 75,
+        "first_video_pts_ms": 0,
+        "last_video_pts_ms": 2960,
+        "strictly_monotonic_video_pts": true,
+        "unique_video_deltas_ms": [
+          40
+        ],
+        "has_audio": true,
+        "audio_codec": "aac",
+        "first_audio_pts_ms": 0,
+        "audio_stream_offset_ms": 0,
+        "audio_tone_onset_ms": 0,
+        "pyav": {
+          "frames": 75,
+          "first_ms": 0,
+          "last_ms": 2960
+        },
+        "visible_marker_seconds": [
+          0,
+          1,
+          2
+        ]
+      },
+      "assertions": {
+        "has_minimum_frames": true,
+        "strictly_monotonic_video_pts": true,
+        "zero_video_origin": true,
+        "constant_frame_delta_cfr": true,
+        "has_audio_stream": true,
+        "audio_aligned_near_zero": true,
+        "audio_tone_onset_near_zero": true,
+        "pyav_agrees_with_ffprobe": true
+      },
+      "failure_reasons": []
+    },
+    "F02": {
+      "fixture_id": "F02",
+      "passed": true,
+      "file_path": "f02_vfr.mp4",
+      "sha256": "cdf54271c47f1ec4ac3bf0e03040c7c3ade645d4ba74f9da0986fb34c0b54fc0",
+      "byte_size": 135422,
+      "ffmpeg_version": "ffmpeg version 8.1.2-essentials_build-www.gyan.dev Copyright (c) 2000-2026 the FFmpeg developers",
+      "command": [
+        "ffmpeg",
+        "-y",
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-f",
+        "lavfi",
+        "-i",
+        "testsrc2=size=320x240:rate=100:duration=3,select='if(lt(t,1.5),not(mod(n,10)),not(mod(n,4)))'",
+        "-f",
+        "lavfi",
+        "-i",
+        "sine=frequency=440:sample_rate=48000:duration=3",
+        "-fps_mode",
+        "vfr",
+        "-video_track_timescale",
+        "1000",
+        "-c:v",
+        "libx264",
+        "-pix_fmt",
+        "yuv420p",
+        "-c:a",
+        "aac",
+        "-ar",
+        "48000",
+        "-b:a",
+        "128k",
+        "f02_vfr.mp4"
+      ],
+      "target_property": "Genuine VFR with >=2 distinct positive presentation time intervals",
+      "observations": {
+        "video_codec": "h264",
+        "width": 320,
+        "height": 240,
+        "video_time_base": "1/1000",
+        "video_frame_count": 52,
+        "first_video_pts_ms": 0,
+        "last_video_pts_ms": 2960,
+        "strictly_monotonic_video_pts": true,
+        "unique_video_deltas_ms": [
+          40,
+          100,
+          120
+        ],
+        "has_audio": true,
+        "audio_codec": "aac",
+        "first_audio_pts_ms": 0,
+        "audio_stream_offset_ms": 0,
+        "delta_spread_ms": 80,
+        "pyav": {
+          "frames": 52,
+          "first_ms": 0,
+          "last_ms": 2960
+        }
+      },
+      "assertions": {
+        "has_minimum_frames": true,
+        "strictly_monotonic_video_pts": true,
+        "multiple_distinct_pts_deltas": true,
+        "significant_vfr_spread": true,
+        "pyav_agrees_with_ffprobe": true
+      },
+      "failure_reasons": []
+    },
+    "F03": {
+      "fixture_id": "F03",
+      "passed": true,
+      "file_path": "f03_nonzero_pts.mp4",
+      "sha256": "c56117640d071a523e4401376be30c28dc40a25d73639b8cd9b2147d5f26c4b0",
+      "byte_size": 162394,
+      "ffmpeg_version": "ffmpeg version 8.1.2-essentials_build-www.gyan.dev Copyright (c) 2000-2026 the FFmpeg developers",
+      "command": [
+        "ffmpeg",
+        "-y",
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-f",
+        "lavfi",
+        "-i",
+        "testsrc2=size=320x240:rate=25:duration=3",
+        "-f",
+        "lavfi",
+        "-i",
+        "sine=frequency=440:sample_rate=48000:duration=3",
+        "-output_ts_offset",
+        "5.000",
+        "-c:v",
+        "libx264",
+        "-pix_fmt",
+        "yuv420p",
+        "-g",
+        "25",
+        "-c:a",
+        "aac",
+        "-ar",
+        "48000",
+        "-b:a",
+        "128k",
+        "f03_nonzero_pts.mp4"
+      ],
+      "target_property": "Non-zero first decoded presentation PTS (~5000ms)",
+      "observations": {
+        "video_codec": "h264",
+        "width": 320,
+        "height": 240,
+        "video_time_base": "1/12800",
+        "video_frame_count": 75,
+        "first_video_pts_ms": 5000,
+        "last_video_pts_ms": 7960,
+        "strictly_monotonic_video_pts": true,
+        "unique_video_deltas_ms": [
+          40
+        ],
+        "has_audio": true,
+        "audio_codec": "aac",
+        "first_audio_pts_ms": 4978,
+        "audio_stream_offset_ms": -22,
+        "pyav": {
+          "frames": 75,
+          "first_ms": 5000,
+          "last_ms": 7960
+        }
+      },
+      "assertions": {
+        "has_minimum_frames": true,
+        "strictly_monotonic_video_pts": true,
+        "first_decoded_pts_is_nonzero": true,
+        "first_decoded_pts_meets_minimum_offset": true,
+        "pyav_agrees_with_ffprobe": true
+      },
+      "failure_reasons": []
+    },
+    "F04": {
+      "fixture_id": "F04",
+      "passed": true,
+      "file_path": "f04_audio_offset_200ms.mp4",
+      "sha256": "42d4f45dfb52477c09169ed0c130c917dc15d383f91c35a1b31571718a2db96c",
+      "byte_size": 158939,
+      "ffmpeg_version": "ffmpeg version 8.1.2-essentials_build-www.gyan.dev Copyright (c) 2000-2026 the FFmpeg developers",
+      "command": [
+        "ffmpeg",
+        "-y",
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-f",
+        "lavfi",
+        "-i",
+        "testsrc2=size=320x240:rate=25:duration=3",
+        "-itsoffset",
+        "0.200",
+        "-f",
+        "lavfi",
+        "-i",
+        "sine=frequency=1000:sample_rate=48000:duration=2.8",
+        "-c:v",
+        "libx264",
+        "-pix_fmt",
+        "yuv420p",
+        "-g",
+        "25",
+        "-c:a",
+        "aac",
+        "-ar",
+        "48000",
+        "-b:a",
+        "128k",
+        "f04_audio_offset_200ms.mp4"
+      ],
+      "target_property": "Audio track delayed by 200ms relative to video origin (verified by both stream PTS and decoded waveform tone onset)",
+      "observations": {
+        "video_codec": "h264",
+        "width": 320,
+        "height": 240,
+        "video_time_base": "1/12800",
+        "video_frame_count": 75,
+        "first_video_pts_ms": 0,
+        "last_video_pts_ms": 2960,
+        "strictly_monotonic_video_pts": true,
+        "unique_video_deltas_ms": [
+          40
+        ],
+        "has_audio": true,
+        "audio_codec": "aac",
+        "first_audio_pts_ms": 178,
+        "audio_stream_offset_ms": 178,
+        "audio_tone_onset_ms": 196,
+        "pyav": {
+          "frames": 75,
+          "first_ms": 0,
+          "last_ms": 2960,
+          "first_audio_ms": 178
+        }
+      },
+      "assertions": {
+        "has_audio_stream": true,
+        "strictly_monotonic_video_pts": true,
+        "audio_stream_pts_offset_within_tolerance": true,
+        "audio_tone_onset_within_tolerance": true,
+        "pyav_agrees_with_ffprobe": true
+      },
+      "failure_reasons": []
+    },
+    "F05": {
+      "file_path": "f05_rotation.mp4",
+      "fixture_id": "F05",
+      "passed": true,
+      "target_property": "90 degree display matrix moves the red top-left marker to bottom-left",
+      "sha256": "3fd49be3202ca210159021d4c3eac5c91682d47f8be6e872750bf870e8768bd7",
+      "byte_size": 2277,
+      "ffmpeg_version": "ffmpeg version 8.1.2-essentials_build-www.gyan.dev Copyright (c) 2000-2026 the FFmpeg developers",
+      "command": [
+        "ffmpeg",
+        "-nostdin",
+        "-y",
+        "-v",
+        "error",
+        "-display_rotation:v:0",
+        "90",
+        "-i",
+        "f05_encoded.mp4",
+        "-c",
+        "copy",
+        "f05_rotation.mp4"
+      ],
+      "generation_steps": [
+        [
+          "ffmpeg",
+          "-nostdin",
+          "-y",
+          "-v",
+          "error",
+          "-f",
+          "lavfi",
+          "-i",
+          "color=black:size=160x96:rate=25:d=1,drawbox=x=8:y=8:w=24:h=24:color=red:t=fill",
+          "-c:v",
+          "libx264",
+          "-pix_fmt",
+          "yuv420p",
+          "f05_encoded.mp4"
+        ],
+        [
+          "ffmpeg",
+          "-nostdin",
+          "-y",
+          "-v",
+          "error",
+          "-display_rotation:v:0",
+          "90",
+          "-i",
+          "f05_encoded.mp4",
+          "-c",
+          "copy",
+          "f05_rotation.mp4"
+        ]
+      ],
+      "observations": {
+        "rotation_degrees": 90,
+        "pyav": {
+          "raw_marker_corner": "top_left"
+        },
+        "display_marker_corner": "bottom_left"
+      },
+      "assertions": {
+        "90 degree display matrix moves the red top-left marker to bottom-left": true
+      },
+      "failure_reasons": []
+    },
+    "F06": {
+      "file_path": "f06_no_audio.mp4",
+      "fixture_id": "F06",
+      "passed": true,
+      "target_property": "decodable video without any audio stream",
+      "sha256": "98f737165aeb4d93c1420f381135314b7c31d923618f457216620cf38a372563",
+      "byte_size": 78875,
+      "ffmpeg_version": "ffmpeg version 8.1.2-essentials_build-www.gyan.dev Copyright (c) 2000-2026 the FFmpeg developers",
+      "command": [
+        "ffmpeg",
+        "-nostdin",
+        "-y",
+        "-v",
+        "error",
+        "-f",
+        "lavfi",
+        "-i",
+        "testsrc2=size=160x96:rate=25:duration=5",
+        "-an",
+        "-c:v",
+        "libx264",
+        "-pix_fmt",
+        "yuv420p",
+        "f06_no_audio.mp4"
+      ],
+      "generation_steps": [
+        [
+          "ffmpeg",
+          "-nostdin",
+          "-y",
+          "-v",
+          "error",
+          "-f",
+          "lavfi",
+          "-i",
+          "testsrc2=size=160x96:rate=25:duration=5",
+          "-an",
+          "-c:v",
+          "libx264",
+          "-pix_fmt",
+          "yuv420p",
+          "f06_no_audio.mp4"
+        ]
+      ],
+      "observations": {
+        "audio_stream_count": 0,
+        "pyav": "19.0.2"
+      },
+      "assertions": {
+        "decodable video without any audio stream": true
+      },
+      "failure_reasons": []
+    },
+    "F07": {
+      "file_path": "f07_long_gop.mp4",
+      "fixture_id": "F07",
+      "passed": true,
+      "target_property": "two-second GOP with reordered B frames and backward keyframe seek",
+      "sha256": "0705ebd440a401389749639abdf314e169621b1a876ec3437b29bea663bf300b",
+      "byte_size": 83051,
+      "ffmpeg_version": "ffmpeg version 8.1.2-essentials_build-www.gyan.dev Copyright (c) 2000-2026 the FFmpeg developers",
+      "command": [
+        "ffmpeg",
+        "-nostdin",
+        "-y",
+        "-v",
+        "error",
+        "-f",
+        "lavfi",
+        "-i",
+        "testsrc2=size=160x96:rate=25:duration=5",
+        "-an",
+        "-c:v",
+        "libx264",
+        "-pix_fmt",
+        "yuv420p",
+        "-g",
+        "50",
+        "-bf",
+        "3",
+        "-x264-params",
+        "min-keyint=50:scenecut=0:b-adapt=0",
+        "f07_long_gop.mp4"
+      ],
+      "generation_steps": [
+        [
+          "ffmpeg",
+          "-nostdin",
+          "-y",
+          "-v",
+          "error",
+          "-f",
+          "lavfi",
+          "-i",
+          "testsrc2=size=160x96:rate=25:duration=5",
+          "-an",
+          "-c:v",
+          "libx264",
+          "-pix_fmt",
+          "yuv420p",
+          "-g",
+          "50",
+          "-bf",
+          "3",
+          "-x264-params",
+          "min-keyint=50:scenecut=0:b-adapt=0",
+          "f07_long_gop.mp4"
+        ]
+      ],
+      "observations": {
+        "pyav": "19.0.2",
+        "keyframe_times_ms": [
+          0,
+          2000,
+          4000
+        ],
+        "b_frames": 90,
+        "seek_landed_ms": 2000,
+        "requested_ms": 3020,
+        "sequential_selected_ms": 3040,
+        "seek_selected_ms": 3040
+      },
+      "assertions": {
+        "two-second GOP with reordered B frames and backward keyframe seek": true
+      },
+      "failure_reasons": []
+    },
+    "F08": {
+      "file_path": "f08_truncated.mp4",
+      "fixture_id": "F08",
+      "passed": true,
+      "target_property": "known prefix of F07 truncated before the MP4 moov atom",
+      "sha256": "1f7c8437e27ffef4ad4a7647da53628f771fc7129a3dc65280d81d890342a0a0",
+      "byte_size": 41525,
+      "ffmpeg_version": "ffmpeg version 8.1.2-essentials_build-www.gyan.dev Copyright (c) 2000-2026 the FFmpeg developers",
+      "command": [
+        "copy_prefix",
+        "f07_long_gop.mp4",
+        "41525",
+        "f08_truncated.mp4"
+      ],
+      "generation_steps": [
+        [
+          "copy_prefix",
+          "f07_long_gop.mp4",
+          "41525",
+          "f08_truncated.mp4"
+        ]
+      ],
+      "observations": {
+        "missing_moov": true,
+        "pyav": "InvalidDataError",
+        "truncation_offset": 41525,
+        "original_bytes": 83051,
+        "original_sha256": "0705ebd440a401389749639abdf314e169621b1a876ec3437b29bea663bf300b"
+      },
+      "assertions": {
+        "known prefix of F07 truncated before the MP4 moov atom": true
+      },
+      "failure_reasons": []
+    }
+  },
+  "pyav_version": "19.0.2"
+}

@@ -112,7 +112,7 @@ def _run_ffmpeg(command: list[str], output_path: Path) -> list[str]:
     return _sanitize_command(command, output_path)
 
 
-def generate_f01_cfr(output_path: Path) -> list[str]:
+def generate_f01_cfr(output_path: Path, *, visible_clock: bool = False) -> list[str]:
     """Generate F01: 25fps CFR video with visible timecode and 0ms aligned audio."""
     cmd = [
         "ffmpeg",
@@ -142,6 +142,15 @@ def generate_f01_cfr(output_path: Path) -> list[str]:
         "128k",
         str(output_path),
     ]
+    if visible_clock:
+        # A bright square advances one column per elapsed second against a black strip.
+        filters = ["drawbox=x=0:y=0:w=96:h=24:color=black:t=fill"]
+        filters.extend(
+            f"drawbox=x={8 + sec * 32}:y=4:w=16:h=16:color=white:t=fill:"
+            f"enable='gte(t,{sec})*lt(t,{sec + 1})'"
+            for sec in range(3)
+        )
+        cmd[-1:-1] = ["-vf", ",".join(filters)]
     return _run_ffmpeg(cmd, output_path)
 
 
@@ -625,11 +634,17 @@ def build_f01_f04_suite(
     output_dir: Path,
     *,
     manifest_path: Path | None = None,
+    visible_clock: bool = False,
 ) -> dict[str, Any]:
     """Generate F01-F04 fixtures, self-check every fixture, and optionally write manifest."""
     output_dir.mkdir(parents=True, exist_ok=True)
     specs = [
-        ("F01", output_dir / "f01_cfr.mp4", generate_f01_cfr, self_check_f01_cfr),
+        (
+            "F01",
+            output_dir / "f01_cfr.mp4",
+            generate_f01_cfr,
+            self_check_f01_cfr,
+        ),
         ("F02", output_dir / "f02_vfr.mp4", generate_f02_vfr, self_check_f02_vfr),
         (
             "F03",
@@ -647,7 +662,10 @@ def build_f01_f04_suite(
 
     fixtures_manifest: dict[str, Any] = {}
     for fid, file_path, generator, checker in specs:
-        cmd = generator(file_path)
+        if fid == "F01" and visible_clock:
+            cmd = generate_f01_cfr(file_path, visible_clock=True)
+        else:
+            cmd = generator(file_path)
         result = checker(file_path, command=cmd, raise_on_fail=True)
         fixtures_manifest[fid] = result.to_dict()
 
@@ -676,25 +694,38 @@ def build_f01_f04_suite(
 
 
 def _cli(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Generate and self-check F01-F04 fixtures.")
+    parser = argparse.ArgumentParser(description="Generate and independently check media fixtures.")
+    parser.add_argument("--suite", choices=["m0", "p0"], default="m0")
+    parser.add_argument("--check-fixture", choices=["F05", "F06", "F07", "F08"])
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=Path("data/fixtures/f01_f04"),
+        default=None,
         help="Gitignored directory where F01-F04 MP4 files are written.",
     )
     parser.add_argument(
         "--manifest-out",
         type=Path,
-        default=Path("tests/fixtures/manifests/f01_f04_manifest.json"),
+        default=None,
         help="Path to write the sanitized F01-F04 self-check manifest JSON.",
     )
     args = parser.parse_args(argv)
-    manifest = build_f01_f04_suite(args.output_dir, manifest_path=args.manifest_out)
+    name = "f01_f08" if args.suite == "p0" or args.check_fixture else "f01_f04"
+    output_dir = args.output_dir or Path("data/fixtures") / name
+    manifest_out = args.manifest_out or Path("tests/fixtures/manifests") / f"{name}_manifest.json"
+    if args.suite == "p0" or args.check_fixture:
+        from tests.fixtures.p0_media import build_p0_suite, check_fixture
+
+        if args.check_fixture:
+            check_fixture(output_dir, args.check_fixture)
+            return 0
+        manifest = build_p0_suite(output_dir, manifest_out)
+    else:
+        manifest = build_f01_f04_suite(output_dir, manifest_path=manifest_out)
     passed_ids = [fid for fid, entry in manifest["fixtures"].items() if entry["passed"]]
     print(
-        f"Generated & self-checked {len(passed_ids)}/{len(FIXTURE_IDS)} fixtures: "
-        f"{', '.join(passed_ids)} -> {args.manifest_out}"
+        f"Generated & self-checked {len(passed_ids)}/{len(manifest['fixtures'])} fixtures: "
+        f"{', '.join(passed_ids)} -> {manifest_out.name}"
     )
     return 0
 
