@@ -62,7 +62,12 @@ def image_size(width: int, height: int, profile: SceneProfile) -> tuple[int, int
 def coverage_gaps(window: TimeRangeMs, actual_ms: Iterable[int]) -> list[TimeRangeMs]:
     gaps = []
     cursor = window.start_ms
-    for point in sorted(set(actual_ms)):
+    points = set[int]()
+    for point in actual_ms:
+        if type(point) is not int or point < 0:
+            raise ValueError("actual timestamp must be a nonnegative integer in milliseconds")
+        points.add(point)
+    for point in sorted(points):
         if window.start_ms <= point < window.end_ms:
             if cursor < point:
                 gaps.append(TimeRangeMs(start_ms=cursor, end_ms=point))
