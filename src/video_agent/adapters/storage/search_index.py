@@ -81,7 +81,8 @@ class SQLiteSearchIndex:
             summary_key = canonical_json_sha256([summary["version"], expected])
             read_summary = (
                 "SELECT config_hash,artifact_id,checksum FROM stage_results "
-                "WHERE analysis_id=? AND asset_id=? AND stage='summarize' AND item_key='all' AND status='committed'"
+                "WHERE analysis_id=? AND asset_id=? AND stage='summarize' "
+                "AND item_key='all' AND status='committed'"
             )
             old_summary = conn.execute(read_summary, scope).fetchone()
             existing = old_summary[1] if old_summary and old_summary[0] == summary_key else None
@@ -110,10 +111,14 @@ class SQLiteSearchIndex:
                     self._replace(conn, scope, docs, version, key_hash, checksum)
                 if conn.execute(read_summary, scope).fetchone() != (summary_key, aid, digest):
                     conn.execute(
-                        """INSERT INTO stage_results(analysis_id,asset_id,stage,item_key,config_hash,
-                             artifact_id,checksum,status,created_at) VALUES(?,?,'summarize','all',?,?,?,'committed',?)
-                             ON CONFLICT(analysis_id,stage,item_key) DO UPDATE SET config_hash=excluded.config_hash,
-                             artifact_id=excluded.artifact_id,checksum=excluded.checksum,status='committed',created_at=excluded.created_at""",
+                        """INSERT INTO stage_results(
+                               analysis_id,asset_id,stage,item_key,config_hash,
+                               artifact_id,checksum,status,created_at)
+                           VALUES(?,?,'summarize','all',?,?,?,'committed',?)
+                           ON CONFLICT(analysis_id,stage,item_key) DO UPDATE SET
+                               config_hash=excluded.config_hash, artifact_id=excluded.artifact_id,
+                               checksum=excluded.checksum,status='committed',
+                               created_at=excluded.created_at""",
                         (*scope, summary_key, aid, digest, datetime.now(UTC).isoformat()),
                     )
                 state = "partial" if partial else "succeeded"
