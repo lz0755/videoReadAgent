@@ -66,7 +66,7 @@ class CatalogImages:
                 else "image/webp"
             )
             box: CropBox | None = None
-            target = pixels
+            target: Image.Image = pixels
             if region_id != "full":
                 r, c = int(region_id[1]) - 1, int(region_id[3]) - 1
                 x = max(0, round((c - 0.1) * width / 3))

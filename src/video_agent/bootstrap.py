@@ -8,9 +8,12 @@ from __future__ import annotations
 
 import json
 import os
+import sqlite3
 import subprocess
 import time
+import uuid
 from collections.abc import Callable
+from contextlib import closing
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from importlib.metadata import version
@@ -26,10 +29,19 @@ from video_agent.adapters.llm.deepseek import (
     DeepSeekVisionProvider,
     slice_endpoint,
 )
+from video_agent.adapters.llm.executor import ProviderExecutor
 from video_agent.adapters.llm.fake import FakePlannerProvider, FakeVisionProvider
 from video_agent.adapters.llm.openai_slice import OPENAI_MODEL_ID
+from video_agent.adapters.llm.vision import StrictVisionProvider, check_images
 from video_agent.adapters.media.probe import probe_managed
+from video_agent.adapters.media.roi import CatalogImages
 from video_agent.adapters.media.thin_media import LocalArtifactStore, PyAVMediaBackend
+from video_agent.adapters.storage.budget import SQLiteBudgetStore
+from video_agent.adapters.storage.connection import (
+    connect_sqlite,
+    create_analysis_with_job,
+    immediate_transaction,
+)
 from video_agent.adapters.storage.filesystem import (
     CatalogArtifactStore,
     ManagedArtifactFiles,
@@ -38,26 +50,42 @@ from video_agent.adapters.storage.filesystem import (
 )
 from video_agent.adapters.storage.media_cache import FileMediaCache, model_directory_digest
 from video_agent.adapters.storage.memory_budget import InMemoryBudgetStore
+from video_agent.adapters.storage.search_index import SQLiteSearchIndex
+from video_agent.adapters.storage.stages import StageCache
+from video_agent.adapters.storage.worker_lock import WorkerLock
 from video_agent.application.budget import (
     BudgetedPlannerProvider,
     BudgetedVisionProvider,
     BudgetGuard,
     SliceRunLimits,
 )
+from video_agent.application.indexing import IndexPipeline
 from video_agent.application.ingest import AssetImporter
 from video_agent.application.media_cache import CachedMediaBackend, CachedTranscriber
 from video_agent.application.media_timeline import build_playback_map
-from video_agent.application.prompt_registry import PromptRegistry
+from video_agent.application.prompt_registry import PromptRegistry, canonical_json_sha256
+from video_agent.application.sampling import SceneProfile
 from video_agent.application.slice import VerticalSliceResult
 from video_agent.domain.config import AppConfig, PriceConfig, ProviderConfig
-from video_agent.domain.errors import BudgetError, ErrorCode, MediaError, ProviderError
-from video_agent.domain.models import VideoAsset
+from video_agent.domain.errors import (
+    BudgetError,
+    ErrorCode,
+    MediaError,
+    ProviderError,
+    StorageError,
+    VideoAgentError,
+)
+from video_agent.domain.models import FrameEvidence, VideoAsset
+from video_agent.domain.policies import check_cloud_egress_allowed
 from video_agent.domain.ports import (
     Clock,
+    ImageInput,
     MediaBackend,
     PlannerProvider,
     Transcriber,
     VisionProvider,
+    VisionRequest,
+    VisionResponse,
 )
 
 
@@ -265,6 +293,16 @@ def _ffmpeg_version() -> str:
         return "unavailable"
 
 
+def _live_vision(config: AppConfig, files: ManagedArtifactFiles) -> VisionProvider:
+    return DeepSeekVisionProvider(
+        artifact_store=files,
+        model_id=config.provider.model,
+        api_key_env=config.provider.api_key_env,
+        cloud_upload_enabled=True,
+        provider_name=config.provider.name,
+    )
+
+
 def build_slice_container(
     *,
     mode: Literal["offline", "live"],
@@ -393,15 +431,7 @@ def build_slice_container(
                 ErrorCode.BUDGET_EXCEEDED, "live slice requires an approved numeric budget"
             )
         resolved_vision: VisionProvider = (
-            vision_provider
-            if vision_provider is not None
-            else DeepSeekVisionProvider(
-                artifact_store=provider_files,
-                model_id=config.provider.model,
-                api_key_env=api_key_env,
-                cloud_upload_enabled=True,
-                provider_name=config.provider.name,
-            )
+            vision_provider if vision_provider is not None else _live_vision(config, provider_files)
         )
         resolved_planner: PlannerProvider = (
             planner_provider
@@ -484,3 +514,235 @@ def build_slice_container(
         release_asr=release_asr,
         registered_artifacts=artifact_store,
     )
+
+
+def _index_asset(db: Path, files: CatalogArtifactStore, asset_id: str) -> VideoAsset:
+    with closing(connect_sqlite(db)) as conn:
+        conn.row_factory = sqlite3.Row
+        row = conn.execute(
+            "SELECT * FROM assets WHERE asset_id=? AND status='ready'", (asset_id,)
+        ).fetchone()
+        if row is None:
+            raise StorageError(ErrorCode.STORAGE_ERROR, "registered asset required")
+        fields = {k: v for k, v in dict(row).items() if k in VideoAsset.model_fields}
+        fields["has_audio"] = bool(fields["has_audio"])
+        asset = VideoAsset.model_validate(fields)
+        if not asset.source_artifact_id or not files.verify_hash(
+            asset.source_artifact_id, asset.sha256
+        ):
+            raise MediaError(ErrorCode.CORRUPT_MEDIA, "managed source digest differs")
+        receipts = conn.execute(
+            "SELECT artifact_id,sha256 FROM artifacts WHERE asset_id=? AND kind='export' "
+            "AND size_bytes<=65536 ORDER BY created_at",
+            (asset_id,),
+        )
+        for aid, sha in receipts:
+            if files.verify_hash(aid, sha):
+                record = json.loads(files.read_bytes(aid))
+                if (
+                    isinstance(record, dict)
+                    and record.get("asset_id") == asset_id
+                    and record.get("sha256") == asset.sha256
+                    and isinstance(record.get("authorization"), str)
+                    and record["authorization"].strip()
+                ):
+                    return asset
+    raise StorageError(ErrorCode.STORAGE_ERROR, "asset authorization receipt required")
+
+
+def _bind_index_job(
+    db: Path, asset: VideoAsset, analysis: str, config_hash: str, bundle: str
+) -> str:
+    with closing(connect_sqlite(db)) as conn:
+        row = conn.execute(
+            "SELECT asset_id,job_id,status,cancel_requested FROM jobs WHERE analysis_id=? "
+            "AND kind='analysis'",
+            (analysis,),
+        ).fetchone()
+        if row is None:
+            _, job = create_analysis_with_job(
+                conn,
+                analysis_id=analysis,
+                asset_id=asset.asset_id,
+                job_id="job_" + uuid.uuid4().hex,
+                config_hash=config_hash,
+                prompt_bundle_hash=bundle,
+                created_at=datetime.now(UTC).isoformat(),
+            )
+        else:
+            if row[0] != asset.asset_id:
+                raise StorageError(
+                    ErrorCode.CROSS_ASSET_REFERENCE, "analysis belongs to another asset"
+                )
+            if row[2] == "cancelled" or row[3]:
+                raise BudgetError(ErrorCode.JOB_CANCELLED, "analysis was cancelled")
+            job = str(row[1])
+        with immediate_transaction(conn):
+            changed = conn.execute(
+                "SELECT 1 FROM analysis_runs WHERE analysis_id=? AND "
+                "(config_hash!=? OR prompt_bundle_hash!=?)",
+                (analysis, config_hash, bundle),
+            ).fetchone()
+            if changed:
+                conn.execute(
+                    "UPDATE stage_results SET status='invalidated' WHERE analysis_id=? "
+                    "AND stage IN ('index','observe')",
+                    (analysis,),
+                )
+            conn.execute(
+                "UPDATE analysis_runs SET config_hash=?,prompt_bundle_hash=?,"
+                "index_state='indexing',"
+                "status='running' WHERE analysis_id=?",
+                (config_hash, bundle, analysis),
+            )
+            conn.execute(
+                "UPDATE jobs SET status='running',error_code=NULL,updated_at=? WHERE job_id=?",
+                (datetime.now(UTC).isoformat(), job),
+            )
+    return job
+
+
+def _verified_detail(config: AppConfig) -> bool:
+    path = Path("experiments/capabilities.json")
+    if not path.is_file():
+        return False
+    matrix = json.loads(path.read_text(encoding="utf-8"))
+    identity = matrix["provider"]
+    return (
+        identity["name"] == config.provider.name
+        and identity["configured_model_id"] == config.provider.model
+        and any(
+            c["capability_id"] == "vision_detail_levels"
+            and c["status"] == "runtime_verified"
+            and c["verification_passed"] is True
+            and c["runtime_evidence_id"]
+            for c in matrix["capabilities"]
+        )
+    )
+
+
+async def index_registered_asset(
+    *,
+    data_root: Path,
+    asset_id: str,
+    analysis_id: str | None,
+    profile: SceneProfile,
+    mode: Literal["offline", "live"],
+    config_path: Path,
+    budget_config_path: Path | None = None,
+    live_provider: Literal["deepseek", "openai"] | None = None,
+    asr_model_path: Path | None = None,
+    explicit_retry: bool = False,
+) -> dict[str, object]:
+    data_root = checked_local_path(data_root)
+    db = checked_local_path(data_root / "agent.sqlite3")
+    analysis = analysis_id or "an_" + uuid.uuid4().hex
+    with WorkerLock(data_root):
+        resources = build_slice_container(
+            mode=mode,
+            data_root=data_root,
+            config_path=config_path,
+            budget_config_path=budget_config_path,
+            live_provider=live_provider,
+            asr_model_path=asr_model_path,
+        )
+        try:
+            files = CatalogArtifactStore(data_root)
+            asset = _index_asset(db, files, asset_id)
+            config = resources.config
+            if (
+                asset.duration_ms > config.media.max_duration_ms
+                or asset.size_bytes > config.media.max_file_bytes
+            ):
+                raise MediaError(
+                    ErrorCode.MEDIA_LIMIT_EXCEEDED, "asset exceeds configured P0 bounds"
+                )
+            port = (
+                _live_vision(config, files)
+                if mode == "live"
+                else FakeVisionProvider(duration_ms=asset.duration_ms)
+            )
+            provider = StrictVisionProvider(port)
+            guard = BudgetGuard(
+                store=SQLiteBudgetStore(db),
+                clock=resources.clock,
+                config=config,
+                prices=resources.prices,
+                run_limits=resources.budget_guard.run_limits,
+            )
+
+            def authorize() -> None:
+                if mode == "live":
+                    check_cloud_egress_allowed(
+                        cloud_upload_enabled=budget_config_path is not None,
+                        has_credential=bool(
+                            os.environ.get(config.provider.api_key_env, "").strip()
+                        ),
+                    )
+
+            executor = ProviderExecutor(guard, authorize=authorize)
+            images = CatalogImages(db, files)
+            cache = StageCache(db, files)
+            high = mode == "offline" or _verified_detail(config)
+
+            def prepare(
+                frame: FrameEvidence, scene: SceneProfile
+            ) -> tuple[FrameEvidence, ImageInput, str]:
+                value = images.prepare_frame(
+                    frame, scene, "full", verified_high_detail=high and scene == "software_tutorial"
+                )
+                return value.frame, value.image, value.sha256
+
+            async def send(req: VisionRequest, operation: str) -> VisionResponse:
+                check_images(images, req, max_images=config.analysis.max_images_per_request)
+                return await executor.observe(
+                    provider,
+                    req,
+                    scope_id=analysis,
+                    operation_key=operation,
+                    explicit_retry=explicit_retry,
+                )
+
+            pipeline = IndexPipeline(
+                config,
+                guard,
+                resources.media_backend,
+                resources.transcriber,
+                resources.prompt_registry,
+                cache,
+                SQLiteSearchIndex(db, cache),
+                prepare,
+                send,
+                cache.admit,
+                cache.operation_key,
+                port.provider_name,
+                port.model_id,
+                port.model_id,
+                resources.mode,
+                high,
+            )
+            bundle = resources.prompt_registry.compute_bundle_hash(
+                tool_schema={}, output_schema=VisionResponse.model_json_schema()
+            )
+            config_hash = canonical_json_sha256(
+                [config.analysis.model_dump(), profile, mode, port.model_id, high]
+            )
+            job = _bind_index_job(db, asset, analysis, config_hash, bundle)
+            try:
+                return await pipeline.run(asset, analysis, job, profile)
+            except Exception as exc:
+                code = exc.code if isinstance(exc, VideoAgentError) else ErrorCode.STORAGE_ERROR
+                with closing(connect_sqlite(db)) as conn, immediate_transaction(conn):
+                    status = "cancelled" if code == ErrorCode.JOB_CANCELLED else "failed"
+                    conn.execute(
+                        "UPDATE analysis_runs SET status=?,index_state='failed' "
+                        "WHERE analysis_id=?",
+                        (status, analysis),
+                    )
+                    conn.execute(
+                        "UPDATE jobs SET status=?,error_code=?,updated_at=? WHERE job_id=?",
+                        (status, code.value, datetime.now(UTC).isoformat(), job),
+                    )
+                raise
+        finally:
+            resources.close()

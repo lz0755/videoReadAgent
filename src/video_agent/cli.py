@@ -21,7 +21,12 @@ import yaml
 from pydantic import ValidationError
 
 from video_agent.application.slice import SliceQuestionSpec, VerticalSliceResult, run_vertical_slice
-from video_agent.bootstrap import build_asset_importer, build_slice_container, load_app_config
+from video_agent.bootstrap import (
+    build_asset_importer,
+    build_slice_container,
+    index_registered_asset,
+    load_app_config,
+)
 from video_agent.domain.config import AppConfig
 from video_agent.domain.errors import VideoAgentError
 
@@ -272,6 +277,29 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
+    index = subparsers.add_parser(
+        "index", help="Build or reopen a registered asset's evidence index"
+    )
+    index.add_argument("--asset-id", required=True)
+    index.add_argument("--analysis-id", help="Resume an existing analysis with its original budget")
+    index.add_argument("--profile", choices=("software_tutorial", "overview"), required=True)
+    index.add_argument("--data-root", type=Path, default=Path("data"))
+    index.add_argument("--config", type=Path, default=Path("config/defaults.yaml"))
+    mode = index.add_mutually_exclusive_group(required=True)
+    mode.add_argument(
+        "--offline", action="store_true", help="Use deterministic local Fake providers"
+    )
+    mode.add_argument(
+        "--live", action="store_true", help="Use the explicitly approved cloud provider"
+    )
+    index.add_argument("--provider", choices=("openai", "deepseek"))
+    index.add_argument("--budget-config", type=Path)
+    index.add_argument("--asr-model-path", type=Path)
+    index.add_argument(
+        "--retry", action="store_true", help="Allow a new paid attempt for an unfinished operation"
+    )
+    index.add_argument("--json", action="store_true")
+
     assets = subparsers.add_parser("assets", help="Manage user-selected local video files")
     imports = assets.add_subparsers(dest="asset_command", required=True).add_parser(
         "import", help="Register an authorized file and retain a managed copy"
@@ -390,6 +418,29 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(list(argv) if argv is not None else None)
 
+    if args.command == "index":
+        if args.retry and not args.analysis_id:
+            parser.error("--retry requires the original --analysis-id")
+        try:
+            coro_index = index_registered_asset(
+                data_root=args.data_root,
+                asset_id=args.asset_id,
+                analysis_id=args.analysis_id,
+                profile=args.profile,
+                mode="live" if args.live else "offline",
+                config_path=args.config,
+                budget_config_path=args.budget_config,
+                live_provider=args.provider,
+                asr_model_path=args.asr_model_path,
+                explicit_retry=args.retry,
+            )
+            indexed = asyncio.run(coro_index) if args.live else _run_offline_coro(coro_index)
+        except (VideoAgentError, ValueError, OSError, sqlite3.Error) as exc:
+            code = exc.code.value if isinstance(exc, VideoAgentError) else "INDEX_FAILED"
+            print(json.dumps({"error": {"code": code}}) if args.json else code, file=sys.stderr)
+            return 1
+        print(json.dumps(indexed, ensure_ascii=False) if args.json else indexed["analysis_id"])
+        return 0
     if args.command == "assets":
         try:
             importer = build_asset_importer(

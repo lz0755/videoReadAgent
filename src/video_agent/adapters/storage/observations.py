@@ -79,7 +79,12 @@ def write_window(conn: sqlite3.Connection, result: WindowResult) -> None:
         frame.evidence_id: parent.evidence_id
         for frame, parent in zip(inputs.frames, result.originals, strict=True)
     }
-    for source in [*result.originals, *inputs.frames, *inputs.transcripts]:
+    sources: list[FrameEvidence | TranscriptSegment] = [
+        *result.originals,
+        *inputs.frames,
+        *inputs.transcripts,
+    ]
+    for source in sources:
         if source.asset_id != inputs.asset_id:
             raise StorageError(ErrorCode.CROSS_ASSET_REFERENCE, "foreign window evidence")
         _write_evidence(conn, source, now, parents.get(source.evidence_id))

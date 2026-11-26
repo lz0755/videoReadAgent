@@ -11,8 +11,9 @@ from pydantic import ValidationError
 from video_agent.adapters.storage.connection import connect_sqlite, immediate_transaction
 from video_agent.adapters.storage.observations import write_window
 from video_agent.application.observations import WindowResult
+from video_agent.application.prompt_registry import canonical_json_sha256
 from video_agent.domain.errors import ErrorCode, StorageError
-from video_agent.domain.models import StrictModel
+from video_agent.domain.models import BudgetLimits, FrameEvidence, StrictModel
 from video_agent.domain.ports import ArtifactStore
 
 
@@ -44,6 +45,56 @@ class StageCache:
     def __init__(self, db_path: Path, artifact_store: ArtifactStore) -> None:
         self._db = db_path
         self._files = artifact_store
+
+    def operation_key(self, analysis: str, item: str, key: str) -> str:
+        # A previously committed result that has since been lost may be rebuilt once.
+        # A crash before this replacement commits keeps the same operation identity.
+        with closing(connect_sqlite(self._db)) as conn:
+            row = conn.execute(
+                "SELECT checksum FROM stage_results WHERE analysis_id=? "
+                "AND stage='observe' AND item_key=? AND config_hash=? AND status='invalidated'",
+                (analysis, item, key),
+            ).fetchone()
+        return canonical_json_sha256([item, key, row[0] if row else None])
+
+    def admit(self, analysis: str, frame: FrameEvidence) -> bool:
+        box = frame.crop
+        sample = canonical_json_sha256(
+            [
+                frame.actual_pts_ms,
+                [box.x, box.y, box.width, box.height] if box and box.region_id != "full" else None,
+            ]
+        )
+        with closing(connect_sqlite(self._db)) as conn, immediate_transaction(conn):
+            row = conn.execute(
+                "SELECT b.limits_json,json_extract(b.consumed_json,'$.unique_sampled_frames') "
+                "FROM budget_accounts b JOIN analysis_runs a ON a.analysis_id=b.scope_id "
+                "JOIN artifacts f ON f.asset_id=a.asset_id WHERE a.analysis_id=? AND a.asset_id=? "
+                "AND f.artifact_id=? AND f.kind IN ('frame','crop')",
+                (analysis, frame.asset_id, frame.artifact_id),
+            ).fetchone()
+            if not row:
+                raise StorageError(ErrorCode.CROSS_ASSET_REFERENCE, "unbound sample")
+            exists = conn.execute(
+                "SELECT 1 FROM stage_results WHERE analysis_id=? AND stage='sample' AND item_key=?",
+                (analysis, sample),
+            ).fetchone()
+            if exists:
+                return True
+            cap = BudgetLimits.model_validate_json(row[0]).max_unique_sampled_frames
+            if cap is None or row[1] >= cap:
+                return False
+            conn.execute(
+                "INSERT INTO stage_results(analysis_id,asset_id,stage,item_key,config_hash,"
+                "checksum,status,created_at) VALUES(?,?,'sample',?,'time-crop-v1',?,'committed',?)",
+                (analysis, frame.asset_id, sample, sample, datetime.now(UTC).isoformat()),
+            )
+            conn.execute(
+                "UPDATE budget_accounts SET consumed_json=json_set(consumed_json,"
+                "'$.unique_sampled_frames',?) WHERE scope_id=?",
+                (row[1] + 1, analysis),
+            )
+        return True
 
     def _verified_hash(
         self, conn: sqlite3.Connection, asset: str, aid: str, *, export: bool = False
@@ -140,9 +191,12 @@ class StageCache:
                 write_window(conn, result)
                 conn.execute(
                     """INSERT INTO stage_results(analysis_id,asset_id,stage,item_key,config_hash,
-                             artifact_id,checksum,status,created_at) VALUES(?,?,'observe',?,?,?,?,'committed',?)
-                             ON CONFLICT(analysis_id,stage,item_key) DO UPDATE SET config_hash=excluded.config_hash,
-                             artifact_id=excluded.artifact_id,checksum=excluded.checksum,status='committed',
+                             artifact_id,checksum,status,created_at)
+                             VALUES(?,?,'observe',?,?,?,?,'committed',?)
+                             ON CONFLICT(analysis_id,stage,item_key) DO UPDATE SET
+                             config_hash=excluded.config_hash,
+                             artifact_id=excluded.artifact_id,checksum=excluded.checksum,
+                             status='committed',
                              created_at=excluded.created_at""",
                     (analysis, asset, item, key, aid, digest, datetime.now(UTC).isoformat()),
                 )
