@@ -275,3 +275,33 @@ def test_playback_verification_is_scoped_to_asset_content_artifact_and_player(
     ):
         fallback = build_playback_map(asset, player_id="pyav-test", verification=candidate)
         assert fallback.status == "preview_only" and fallback.offset_ms is None
+
+
+@pytest.mark.parametrize(
+    ("sources", "players"),
+    [
+        ((0, 40, 80), (0, 40, 80)),  # all three measurements came from the start
+        ((0, 2480, 4960), (2500, 2000, 1500)),  # player clock runs backwards
+    ],
+)
+def test_large_measurement_tolerance_cannot_validate_missing_coverage_or_reverse_time(
+    media: dict[str, Path], tmp_path: Path, sources: tuple[int, ...], players: tuple[int, ...]
+) -> None:
+    _, asset = _registered(media["F07"], tmp_path)
+    assert asset.duration_ms == 5000 and asset.source_artifact_id
+    positions: tuple[Literal["start", "mid", "end"], ...] = ("start", "mid", "end")
+    records = tuple(
+        PlaybackVerificationRecord(
+            position=position,
+            source_pts_ms=source,
+            proxy_pts_ms=player,
+            observed_offset_ms=player - source,
+            tolerance_ms=10000,
+        )
+        for position, source, player in zip(positions, sources, players, strict=True)
+    )
+    verification = PlaybackVerification(
+        asset.asset_id, asset.source_artifact_id, asset.sha256, "measured-player", records
+    )
+    result = build_playback_map(asset, player_id="measured-player", verification=verification)
+    assert result.status == "preview_only" and result.offset_ms is None
