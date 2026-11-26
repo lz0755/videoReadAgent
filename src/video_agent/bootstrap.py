@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import os
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -33,6 +34,7 @@ from video_agent.application.budget import (
     BudgetGuard,
     SliceRunLimits,
 )
+from video_agent.application.ingest import AssetImporter
 from video_agent.application.prompt_registry import PromptRegistry
 from video_agent.application.slice import VerticalSliceResult
 from video_agent.domain.config import AppConfig, PriceConfig, ProviderConfig
@@ -44,6 +46,13 @@ from video_agent.domain.ports import (
     Transcriber,
     VisionProvider,
 )
+
+
+def build_asset_importer(
+    data_root: Path, config: AppConfig, *, quota_bytes: int | None = None,
+    progress: Callable[[int], None] | None = None,
+) -> AssetImporter:
+    raise NotImplementedError
 
 
 class SystemClock:
