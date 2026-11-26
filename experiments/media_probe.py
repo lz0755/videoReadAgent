@@ -48,6 +48,9 @@ class MediaTimelineSummary:
     audio_stream_offset_ms: int | None
     audio_tone_onset_ms: int | None
     pyav_available: bool
+    rotation_degrees: int
+    keyframe_times_ms: list[int]
+    b_frames: int
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -70,6 +73,9 @@ class MediaTimelineSummary:
             "audio_stream_offset_ms": self.audio_stream_offset_ms,
             "audio_tone_onset_ms": self.audio_tone_onset_ms,
             "pyav_available": self.pyav_available,
+            "rotation_degrees": self.rotation_degrees,
+            "keyframe_times_ms": list(self.keyframe_times_ms),
+            "b_frames": self.b_frames,
         }
 
 
@@ -182,16 +188,24 @@ def probe_media_timeline(
             "v:0",
             "-show_frames",
             "-show_entries",
-            "frame=pts,pts_time",
+            "frame=pts,pts_time,key_frame,pict_type",
             str(video_path),
         ]
     )
     raw_video_pts_ms: list[int] = []
+    raw_keyframes: list[int] = []
+    b_frames = 0
     for frame in v_frames_payload.get("frames", []):
         if frame.get("pts") is not None:
-            raw_video_pts_ms.append(math.floor(Fraction(int(frame["pts"])) * v_tb * 1000))
+            ms = math.floor(Fraction(int(frame["pts"])) * v_tb * 1000)
         elif frame.get("pts_time") is not None:
-            raw_video_pts_ms.append(math.floor(Fraction(str(frame["pts_time"])) * 1000))
+            ms = math.floor(Fraction(str(frame["pts_time"])) * 1000)
+        else:
+            raise MediaProbeError("Decoded video frame lacks a presentation timestamp")
+        raw_video_pts_ms.append(ms)
+        if frame.get("key_frame") == 1:
+            raw_keyframes.append(ms)
+        b_frames += frame.get("pict_type") == "B"
 
     if not raw_video_pts_ms:
         raise MediaProbeError(f"No decodable video frames with PTS in {video_path.name}")
@@ -263,6 +277,16 @@ def probe_media_timeline(
         audio_stream_offset_ms=audio_stream_offset_ms,
         audio_tone_onset_ms=audio_tone_onset_ms,
         pyav_available=importlib.util.find_spec("av") is not None,
+        rotation_degrees=next(
+            (
+                int(s["rotation"])
+                for s in v_stream.get("side_data_list", [])
+                if s.get("side_data_type") == "Display Matrix" and "rotation" in s
+            ),
+            0,
+        ),
+        keyframe_times_ms=[ms - first_video_pts_ms for ms in raw_keyframes],
+        b_frames=b_frames,
     )
 
 
