@@ -211,6 +211,9 @@ CREATE TABLE search_docs (
         REFERENCES analysis_runs(analysis_id, asset_id)
 );
 
+CREATE INDEX ix_search_docs_scope_version
+    ON search_docs(asset_id, analysis_id, index_version);
+
 CREATE VIRTUAL TABLE search_fts USING fts5(
     doc_id UNINDEXED,
     tokens,
