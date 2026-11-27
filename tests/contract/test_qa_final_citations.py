@@ -86,8 +86,10 @@ def test_fallback_revalidates_retained_claim_after_its_evidence_becomes_unavaila
             )
 
     planner = Interim()
-    frame = inputs_for("A", "X").frames[0].model_copy(
-        update={"requested_ms": 15, "actual_pts_ms": 15, "raw_pts": 15}
+    frame = (
+        inputs_for("A", "X")
+        .frames[0]
+        .model_copy(update={"requested_ms": 15, "actual_pts_ms": 15, "raw_pts": 15})
     )
     repository = {"frame": frame}
     ctrl, guard, _, _ = harness(planner)
