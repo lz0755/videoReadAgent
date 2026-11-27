@@ -14,7 +14,7 @@ import subprocess
 import time
 import uuid
 from collections.abc import Callable
-from contextlib import closing
+from contextlib import ExitStack, closing
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from importlib.metadata import version
@@ -692,18 +692,20 @@ async def ask_registered_asset(
         raise StorageError(
             ErrorCode.INDEX_NOT_READY, "registered asset and published index required"
         )
-    with (
-        WorkerLock(data_root),
-        closing(
-            build_slice_container(
-                mode=mode,
-                data_root=data_root,
-                config_path=config_path,
-                live_provider=live_provider,
-                budget_config_path=budget_config_path,
+    with WorkerLock(data_root), ExitStack() as stack:
+        verify_current_schema(db)
+        ensure_compute_idle(data_root)
+        resources = stack.enter_context(
+            closing(
+                build_slice_container(
+                    mode=mode,
+                    data_root=data_root,
+                    config_path=config_path,
+                    live_provider=live_provider,
+                    budget_config_path=budget_config_path,
+                )
             )
-        ) as resources,
-    ):
+        )
         files = CatalogArtifactStore(data_root)
         asset = _index_asset(db, files, asset_id)
         question = Question(
@@ -1051,6 +1053,11 @@ async def _index_locked(
         except Exception as exc:
             code = exc.code if isinstance(exc, VideoAgentError) else ErrorCode.STORAGE_ERROR
             with closing(connect_sqlite(db)) as conn, immediate_transaction(conn):
+                cancel_row = conn.execute(
+                    "SELECT cancel_requested FROM jobs WHERE job_id=?", (job,)
+                ).fetchone()
+                if cancel_row and cancel_row[0]:
+                    code = ErrorCode.JOB_CANCELLED
                 status = "cancelled" if code == ErrorCode.JOB_CANCELLED else "failed"
                 conn.execute(
                     "UPDATE analysis_runs SET status=?,index_state='failed' WHERE analysis_id=?",

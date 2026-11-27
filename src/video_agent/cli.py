@@ -29,7 +29,7 @@ from video_agent.bootstrap import (
     load_app_config,
 )
 from video_agent.domain.config import AppConfig
-from video_agent.domain.errors import VideoAgentError, WorkerLockError
+from video_agent.domain.errors import ErrorCode, VideoAgentError
 
 
 @dataclass(frozen=True, slots=True)
@@ -308,7 +308,13 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Acknowledge that the previous request may still incur charges",
     )
-    for entry in (init, serve, worker, analyses, questions, retry):
+    export = subparsers.add_parser(
+        "export", help="Export a versioned analysis with evidence and usage"
+    )
+    export.add_argument("--analysis-id", required=True)
+    export.add_argument("--format", choices=("json", "markdown"), required=True)
+    export.add_argument("--output", type=Path, required=True)
+    for entry in (init, serve, worker, analyses, questions, retry, export):
         entry.add_argument("--data-root", type=Path, default=Path("data"))
         entry.add_argument("--config", type=Path, default=Path("config/defaults.yaml"))
 
@@ -577,6 +583,44 @@ def _local_command(args: argparse.Namespace) -> int:
             args.data_root, jobs, execute, analysis_seconds=analysis, qa_seconds=qa, once=args.once
         )
         return 0
+    if args.command == "export":
+        from tempfile import NamedTemporaryFile
+
+        from video_agent.adapters.storage.filesystem import checked_local_path
+        from video_agent.application.export import markdown_report
+
+        report = jobs.report(args.analysis_id)
+        output = checked_local_path(args.output).resolve()
+        root = jobs.db.parent.resolve()
+        if (
+            output.is_relative_to(root / "artifacts")
+            or output.is_relative_to(root / "media-cache")
+            or output.parent == root
+            and (
+                output.name.startswith("agent.sqlite3")
+                or output.name in {"worker.lock", "import.lock", "compute-active"}
+            )
+        ):
+            raise ValueError("output conflicts with managed storage")
+        content = (
+            json.dumps(report, indent=2, ensure_ascii=False) + "\n"
+            if args.format == "json"
+            else markdown_report(report)
+        )
+        with NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=output.parent, delete=False
+        ) as stream:
+            temporary = Path(stream.name)
+            try:
+                stream.write(content)
+                stream.flush()
+                os.fsync(stream.fileno())
+                stream.close()
+                os.replace(temporary, output)
+            finally:
+                stream.close()
+                temporary.unlink(missing_ok=True)
+        return 0
     if args.command == "jobs":
         result = jobs.retry(args.job_id, confirmed=args.confirm_external_risk)
     elif args.command == "analyses":
@@ -600,7 +644,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(list(argv) if argv is not None else None)
 
-    if args.command in {"init", "serve", "worker", "analyses", "questions", "jobs"}:
+    if args.command in {"init", "serve", "worker", "analyses", "questions", "jobs", "export"}:
         try:
             return _local_command(args)
         except (VideoAgentError, OSError, ValueError, LookupError, sqlite3.Error) as exc:
@@ -690,7 +734,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0 if report.ok else 1
 
     if args.command == "slice":
-        from video_agent.adapters.storage.migrate import run_migrations
+        from video_agent.adapters.storage.migrate import run_migrations, verify_current_schema
         from video_agent.adapters.storage.worker_lock import WorkerLock, compute_guard
 
         try:
@@ -699,8 +743,15 @@ def main(argv: Sequence[str] | None = None) -> int:
             if not db.is_file():
                 run_migrations(db, data_root=root, writers_stopped=True)
             with WorkerLock(root), compute_guard(root, "direct-slice", may_spawn=True):
+                verify_current_schema(db)
                 return _slice_command(args)
-        except WorkerLockError as exc:
+        except VideoAgentError as exc:
+            if exc.code not in (
+                ErrorCode.WORKER_ALREADY_RUNNING,
+                ErrorCode.RESOURCE_BUSY,
+                ErrorCode.MIGRATION_ERROR,
+            ):
+                raise
             print(json.dumps({"error": {"code": exc.code.value}}), file=sys.stderr)
             return 1
 
