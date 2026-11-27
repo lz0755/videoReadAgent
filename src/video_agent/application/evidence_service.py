@@ -5,6 +5,7 @@ from dataclasses import dataclass
 
 from pydantic import Field, StrictInt
 
+from video_agent.domain.errors import DomainValidationError, ErrorCode
 from video_agent.domain.models import (
     FrameEvidence,
     Observation,
@@ -47,4 +48,20 @@ class EvidenceService:
     allow_region: Callable[[RegionId, TimeRangeMs], bool]
 
     async def run(self, request: SearchArgs | FrameSelection, parent: str) -> ToolResult:
-        raise NotImplementedError
+        if isinstance(request, FrameSelection):
+            return await self.review_frames(request, parent)
+        asset, analysis = self.question.asset_id, self.question.analysis_id
+        hits = self.search.search(
+            asset, analysis, request.query, limit=request.limit, time_range=request.time_range
+        )
+        observations = []
+        for hit in hits:
+            if (hit.asset_id, hit.analysis_id) != (asset, analysis):
+                raise DomainValidationError(ErrorCode.INVALID_CITATION, "foreign search hit")
+            obs = self.read_observation(hit)
+            if (obs.asset_id, obs.analysis_id) != (asset, analysis) or set(obs.evidence_ids) != set(
+                hit.evidence_ids
+            ):
+                raise DomainValidationError(ErrorCode.INVALID_CITATION, "unbound search result")
+            observations.append(obs)
+        return ToolResult(hits=hits, observations=observations)
