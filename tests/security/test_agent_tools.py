@@ -1,8 +1,8 @@
-import asyncio
 from unittest.mock import AsyncMock, Mock
 
 import pytest
 
+from tests.unit.test_budget_guard import _run_coro
 from video_agent.agent.tools import validate_tool
 from video_agent.application.evidence_service import EvidenceService, FrameSelection, ToolResult
 from video_agent.bootstrap import load_app_config
@@ -55,7 +55,7 @@ def test_bound_search_and_full_or_selected_review() -> None:
     assert isinstance(bound.search, Mock)
     bound.search.search.return_value = []
     request = validate_tool("search_evidence", {"query": "孔径"}, bound, QA)
-    assert asyncio.run(bound.run(request, "p")).hits == []
+    assert _run_coro(bound.run(request, "p")).hits == []
     bound.search.search.assert_called_once_with("A", "X", "孔径", limit=5, time_range=None)
     clip = validate_tool(
         "inspect_clip", {"start_ms": 0, "end_ms": 8000, "region_id": "r1c1"}, bound, QA
@@ -63,7 +63,7 @@ def test_bound_search_and_full_or_selected_review() -> None:
     assert isinstance(clip, FrameSelection)
     assert clip.points == tuple(range(0, 8000, 500)) and clip.region == "r1c1"
     assert clip.window == TimeRangeMs(start_ms=0, end_ms=8000)
-    assert asyncio.run(bound.run(clip, "server-parent")) == ToolResult()
+    assert _run_coro(bound.run(clip, "server-parent")) == ToolResult()
     assert isinstance(bound.review_frames, AsyncMock)
     bound.review_frames.assert_awaited_once_with(clip, "server-parent")
     compared = validate_tool("compare_frames", {"first_ms": 150, "second_ms": 29000}, bound, QA)
