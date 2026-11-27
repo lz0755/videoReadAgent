@@ -7,16 +7,15 @@ from __future__ import annotations
 
 import asyncio
 import json
-import re
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC
-from decimal import Decimal
 from typing import Literal
 
 from video_agent.application.budget import BudgetGuard
 from video_agent.application.prompt_registry import PromptRegistry
+from video_agent.application.retrieval import nearby_window, question_times
 from video_agent.domain.config import AppConfig
 from video_agent.domain.errors import (
     BudgetError,
@@ -298,35 +297,6 @@ def _ranges_overlap(a: TimeRangeMs, b: TimeRangeMs) -> bool:
     return a.start_ms < b.end_ms and b.start_ms < a.end_ms
 
 
-_SECONDS = r"(?:seconds?|secs?|s)(?![a-z])|秒"
-_NUMBER = r"[0-9]{1,9}(?:\.[0-9]{1,3})?"
-_LOCATION = re.compile(
-    rf"(?:(?<![a-z0-9])(?P<cue>at|around|near|between|from)\b\s*"
-    rf"(?:(?:approximately|about)\s+)?|(?:在|从|第)\s*(?:大约|约)?)"
-    rf"\s*(?P<first>{_NUMBER})\s*"
-    rf"(?:(?:(?:{_SECONDS})\s*)?(?:[-–—]|\bto\b|\band\b|至|到|和)\s*"
-    rf"(?P<last>{_NUMBER})\s*)?(?:{_SECONDS})"
-)
-_DURATION_PREFIX = re.compile(r"\b(?:for|lasts?|lasted|takes?|took|wait(?:s|ed|ing)?)\s*$")
-_DURATION_SUFFIX = re.compile(r"\s*(?:(?:之|以)?内|long\b|in length\b)")
-_NEARBY_MS = 1000
-
-
-def _question_times(query: str) -> tuple[int, int] | None:
-    """Recognize explicit second-based locations in the question, including decimal seconds."""
-    for match in _LOCATION.finditer(query):
-        if _DURATION_SUFFIX.match(query, match.end()):
-            continue
-        if match["cue"] in {"around", "near", "between"} and _DURATION_PREFIX.search(
-            query[: match.start()]
-        ):
-            continue
-        first = int(Decimal(match["first"]) * 1000)
-        last = int(Decimal(match["last"] or match["first"]) * 1000)
-        return min(first, last), max(first, last)
-    return None
-
-
 type _ScoredDoc = tuple[float, int, _IndexedDoc]
 
 
@@ -433,16 +403,11 @@ class SliceSearchIndex:
     ) -> list[SearchHit]:
         normalized_query, query_tokens, needs_fallback = validate_search_query(query)
         clamped_limit = max(1, min(10, limit))
-        anchors = _question_times(normalized_query)
+        anchors = question_times(normalized_query)
         if anchors is not None:
-            start = max(0, anchors[0] - _NEARBY_MS)
-            end = anchors[1] + _NEARBY_MS + 1
-            if time_range is not None:
-                start = max(start, time_range.start_ms)
-                end = min(end, time_range.end_ms)
-            if start >= end:
+            time_range = nearby_window(anchors, time_range)
+            if time_range is None:
                 return []
-            time_range = TimeRangeMs(start_ms=start, end_ms=end)
 
         # Scope strictly to (asset_id, analysis_id) BEFORE ranking/limiting.
         scoped = [
