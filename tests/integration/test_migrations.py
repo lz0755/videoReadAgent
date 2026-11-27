@@ -53,7 +53,7 @@ def test_schema_bootstrap_and_sequential_migrations_are_structurally_equivalent(
 
     bootstrap_from_schema(db_schema, data_root=bootstrap_dir, writers_stopped=True)
     applied = run_migrations(db_migrated, data_root=migrate_dir, writers_stopped=True)
-    assert applied == [1]
+    assert applied == [1, 2]
 
     # Re-running migrations is a no-op
     assert run_migrations(db_migrated, data_root=migrate_dir, writers_stopped=True) == []
@@ -120,7 +120,7 @@ def test_migration_requires_writers_stopped_and_exclusive_os_lock(tmp_path: Path
     # Lock file must NOT be unlinked after normal release; subsequent migration succeeds
     assert (tmp_path / "worker.lock").exists()
     applied = run_migrations(db_path, data_root=tmp_path, writers_stopped=True)
-    assert applied == [1]
+    assert applied == [1, 2]
 
 
 def test_migration_rollback_on_mid_script_failure_and_checksum_tamper_detection(
