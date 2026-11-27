@@ -1,0 +1,3080 @@
+{
+  "schema_version": "m0-benchmark-subset-v1",
+  "generated_at_utc": "2026-11-27T00:26:08.596237+00:00",
+  "policy": {
+    "hard_size_cap_gb": 20.0,
+    "hard_size_cap_bytes": 20000000000,
+    "raw_media_gitignored_root": "data/datasets",
+    "holdout_isolation_rule": "m6_holdout artifacts and private answer keys are strictly disjoint by source_group_id, original_id, source_video_url, and task_id; never used for M0/M1.5/M4 tuning.",
+    "cloud_egress_note": "Local benchmark curation does NOT authorize cloud LLM upload. Sending any extracted frame to DeepSeek requires explicit M0.0 cloud_egress_authorized=true."
+  },
+  "benchmarks": {
+    "mme_videoocr": {
+      "benchmark": "mme_videoocr",
+      "source_repo_url": "https://huggingface.co/datasets/DogNeverSleep/MME-VideoOCR_Dataset",
+      "license_name": "CC-BY-NC-4.0",
+      "commercial_use_allowed": false,
+      "redistribution_allowed": false,
+      "usage_scope": "local_non_commercial_research_eval_only",
+      "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+      "notes": "Dataset card specifies CC-BY-NC 4.0, academic research only; original video copyright remains with respective owners; stored locally under gitignored data/."
+    },
+    "videogui": {
+      "benchmark": "videogui",
+      "source_repo_url": "https://github.com/showlab/VideoGUI",
+      "license_name": "academic_benchmark_unspecified_osi_license",
+      "commercial_use_allowed": false,
+      "redistribution_allowed": false,
+      "usage_scope": "local_non_commercial_research_eval_only",
+      "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+      "notes": "NeurIPS 2024 D&B public academic benchmark (showlab/VideoGUI & official HuggingFace org VideoGUI/*). GitHub repo has no OSI LICENSE file; restricted to local non-commercial evaluation and stored under gitignored data/."
+    },
+    "video_mme_v2": {
+      "benchmark": "video_mme_v2",
+      "source_repo_url": "https://huggingface.co/datasets/MME-Benchmarks/Video-MME-v2",
+      "license_name": "academic_benchmark_public_research",
+      "commercial_use_allowed": false,
+      "redistribution_allowed": false,
+      "usage_scope": "local_non_commercial_research_eval_only",
+      "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+      "notes": "Public academic video benchmark on HuggingFace (MME-Benchmarks/Video-MME-v2). No redistribution; stored locally under gitignored data/. Cloud egress to any third-party LLM requires explicit M0.0 cloud_egress_authorized consent."
+    }
+  },
+  "totals": {
+    "media_artifact_bytes": 401206219,
+    "m0_a1_extracted_bytes": 18938218,
+    "auxiliary_metadata_bytes": 262520,
+    "total_bytes": 420406957,
+    "total_gb": 0.4204,
+    "max_total_bytes": 20000000000,
+    "within_20gb_budget": true,
+    "by_benchmark": {
+      "videogui": {
+        "artifact_count": 54,
+        "video_count": 6,
+        "bytes": 83374282
+      },
+      "mme_videoocr": {
+        "artifact_count": 8,
+        "video_count": 8,
+        "bytes": 48116014
+      },
+      "video_mme_v2": {
+        "artifact_count": 10,
+        "video_count": 10,
+        "bytes": 269715923
+      }
+    },
+    "by_split": {
+      "m0_dev": {
+        "artifact_count": 30,
+        "video_count": 6,
+        "bytes": 107330037
+      },
+      "d1_dev_extra": {
+        "artifact_count": 18,
+        "video_count": 10,
+        "bytes": 136875221
+      },
+      "m6_holdout": {
+        "artifact_count": 24,
+        "video_count": 8,
+        "bytes": 157000961
+      }
+    }
+  },
+  "m1_5_slice_artifact_ids": [
+    "vg_pr10_start",
+    "ocr_941",
+    "ocr_750"
+  ],
+  "media_artifacts": [
+    {
+      "artifact_id": "vg_ae10_start",
+      "benchmark": "videogui",
+      "split": "m0_dev",
+      "media_kind": "video",
+      "original_id": "AE_10/start.mp4",
+      "source_group_id": "videogui:AE_10",
+      "task_id": "AE_10",
+      "source_video_url": null,
+      "relative_path": "data/datasets/videogui/m0_dev/vg_ae10_start.mp4",
+      "byte_size": 4559173,
+      "sha256": "49116a696e120dd25e0d6fd783ab49194877650c8fd5389e1cbe46b1af7407d4",
+      "question_count": 0,
+      "task_categories": [],
+      "role_summary": "After Effects visual tutorial start clip (paired with Mid-Plan GUI steps)",
+      "ffprobe": {
+        "duration_ms": 5038,
+        "start_time_ms": 0,
+        "video_codec": "h264",
+        "pix_fmt": "yuv420p",
+        "width": 1920,
+        "height": 1080,
+        "time_base": "1/30000",
+        "r_frame_rate": 29.97,
+        "avg_frame_rate": 29.97,
+        "has_audio": false,
+        "audio_codec": null,
+        "p0_h264_native": true
+      },
+      "authorization": {
+        "benchmark": "videogui",
+        "source_repo_url": "https://github.com/showlab/VideoGUI",
+        "license_name": "academic_benchmark_unspecified_osi_license",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "NeurIPS 2024 D&B public academic benchmark (showlab/VideoGUI & official HuggingFace org VideoGUI/*). GitHub repo has no OSI LICENSE file; restricted to local non-commercial evaluation and stored under gitignored data/."
+      }
+    },
+    {
+      "artifact_id": "vg_pr10_start",
+      "benchmark": "videogui",
+      "split": "m0_dev",
+      "media_kind": "video",
+      "original_id": "PR_10/start.mp4",
+      "source_group_id": "videogui:PR_10",
+      "task_id": "PR_10",
+      "source_video_url": null,
+      "relative_path": "data/datasets/videogui/m0_dev/vg_pr10_start.mp4",
+      "byte_size": 12037176,
+      "sha256": "bd2f517bd893549b3addf2cd9f385d73fa05acf4d29bd9c074e9a410ff6d9284",
+      "question_count": 0,
+      "task_categories": [],
+      "role_summary": "Premiere Pro visual tutorial clip (M0 dev + M1.5 software tutorial slice)",
+      "ffprobe": {
+        "duration_ms": 9400,
+        "start_time_ms": 0,
+        "video_codec": "h264",
+        "pix_fmt": "yuv420p",
+        "width": 1920,
+        "height": 1080,
+        "time_base": "1/25000",
+        "r_frame_rate": 25.0,
+        "avg_frame_rate": 25.0,
+        "has_audio": true,
+        "audio_codec": "aac",
+        "p0_h264_native": true
+      },
+      "authorization": {
+        "benchmark": "videogui",
+        "source_repo_url": "https://github.com/showlab/VideoGUI",
+        "license_name": "academic_benchmark_unspecified_osi_license",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "NeurIPS 2024 D&B public academic benchmark (showlab/VideoGUI & official HuggingFace org VideoGUI/*). GitHub repo has no OSI LICENSE file; restricted to local non-commercial evaluation and stored under gitignored data/."
+      }
+    },
+    {
+      "artifact_id": "ocr_941",
+      "benchmark": "mme_videoocr",
+      "split": "m0_dev",
+      "media_kind": "video",
+      "original_id": "941",
+      "source_group_id": "mme_videoocr:941",
+      "task_id": null,
+      "source_video_url": null,
+      "relative_path": "data/datasets/mme_videoocr/m0_dev/ocr_941.mp4",
+      "byte_size": 5743181,
+      "sha256": "48617ac946fa8c1a694a50704054d5ef326da2dad3e12473a2831afb62be0afc",
+      "question_count": 3,
+      "task_categories": [
+        "Text_Grounding"
+      ],
+      "role_summary": "30s GUI dialog small-text OCR (3 Qs; M0 dev + M1.5 slice + M0-A1)",
+      "ffprobe": {
+        "duration_ms": 30025,
+        "start_time_ms": 0,
+        "video_codec": "h264",
+        "pix_fmt": "yuv420p",
+        "width": 1920,
+        "height": 1080,
+        "time_base": "1/19184",
+        "r_frame_rate": 23.98,
+        "avg_frame_rate": 23.98,
+        "has_audio": false,
+        "audio_codec": null,
+        "p0_h264_native": true
+      },
+      "authorization": {
+        "benchmark": "mme_videoocr",
+        "source_repo_url": "https://huggingface.co/datasets/DogNeverSleep/MME-VideoOCR_Dataset",
+        "license_name": "CC-BY-NC-4.0",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "Dataset card specifies CC-BY-NC 4.0, academic research only; original video copyright remains with respective owners; stored locally under gitignored data/."
+      }
+    },
+    {
+      "artifact_id": "ocr_750",
+      "benchmark": "mme_videoocr",
+      "split": "m0_dev",
+      "media_kind": "video",
+      "original_id": "750",
+      "source_group_id": "mme_videoocr:750",
+      "task_id": null,
+      "source_video_url": null,
+      "relative_path": "data/datasets/mme_videoocr/m0_dev/ocr_750.mp4",
+      "byte_size": 18973714,
+      "sha256": "9ed08ea5b848ef24457cd7881c16f61db75621b13e67f94250fcd6548c4acd05",
+      "question_count": 2,
+      "task_categories": [
+        "Text_Based_Video_Understanding"
+      ],
+      "role_summary": "60s subtitle-based video understanding (2 Qs; exact 60s M1.5 slice)",
+      "ffprobe": {
+        "duration_ms": 60000,
+        "start_time_ms": 0,
+        "video_codec": "h264",
+        "pix_fmt": "yuv420p",
+        "width": 1920,
+        "height": 1080,
+        "time_base": "1/12288",
+        "r_frame_rate": 24.0,
+        "avg_frame_rate": 24.0,
+        "has_audio": true,
+        "audio_codec": "aac",
+        "p0_h264_native": true
+      },
+      "authorization": {
+        "benchmark": "mme_videoocr",
+        "source_repo_url": "https://huggingface.co/datasets/DogNeverSleep/MME-VideoOCR_Dataset",
+        "license_name": "CC-BY-NC-4.0",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "Dataset card specifies CC-BY-NC 4.0, academic research only; original video copyright remains with respective owners; stored locally under gitignored data/."
+      }
+    },
+    {
+      "artifact_id": "vmme_001",
+      "benchmark": "video_mme_v2",
+      "split": "m0_dev",
+      "media_kind": "video",
+      "original_id": "001",
+      "source_group_id": "video_mme_v2:001",
+      "task_id": null,
+      "source_video_url": "https://www.youtube.com/watch?v=AYSYelOQtQI",
+      "relative_path": "data/datasets/video_mme_v2/m0_dev/vmme_001.mp4",
+      "byte_size": 34115582,
+      "sha256": "842dcc5971d2842c9f2e790ac6f7ded7c1908bec01621d3f652e7b85c05eb95d",
+      "question_count": 4,
+      "task_categories": [
+        "Complex Plot Comprehension",
+        "Frames & Audio",
+        "Temporal Reasoning"
+      ],
+      "role_summary": "Frames & Audio + Temporal Reasoning + Complex Plot (4 Qs + subtitles)",
+      "ffprobe": {
+        "duration_ms": 507054,
+        "start_time_ms": 0,
+        "video_codec": "hevc",
+        "pix_fmt": "yuv420p",
+        "width": 1920,
+        "height": 1080,
+        "time_base": "1/12800",
+        "r_frame_rate": 25.0,
+        "avg_frame_rate": 25.0,
+        "has_audio": true,
+        "audio_codec": "aac",
+        "p0_h264_native": false
+      },
+      "authorization": {
+        "benchmark": "video_mme_v2",
+        "source_repo_url": "https://huggingface.co/datasets/MME-Benchmarks/Video-MME-v2",
+        "license_name": "academic_benchmark_public_research",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "Public academic video benchmark on HuggingFace (MME-Benchmarks/Video-MME-v2). No redistribution; stored locally under gitignored data/. Cloud egress to any third-party LLM requires explicit M0.0 cloud_egress_authorized consent."
+      }
+    },
+    {
+      "artifact_id": "vmme_087",
+      "benchmark": "video_mme_v2",
+      "split": "m0_dev",
+      "media_kind": "video",
+      "original_id": "087",
+      "source_group_id": "video_mme_v2:087",
+      "task_id": null,
+      "source_video_url": "https://www.youtube.com/watch?v=Yy97k09Y9hU",
+      "relative_path": "data/datasets/video_mme_v2/m0_dev/vmme_087.mp4",
+      "byte_size": 26087349,
+      "sha256": "b523d2fc10447e8eaf651bfd44a0e7965cef46422a1a6afde6fd9bd229948df8",
+      "question_count": 4,
+      "task_categories": [
+        "Video-Based Knowledge Acquisition"
+      ],
+      "role_summary": "Procedural knowledge acquisition ~178s (4 Qs + subtitles)",
+      "ffprobe": {
+        "duration_ms": 277293,
+        "start_time_ms": 0,
+        "video_codec": "hevc",
+        "pix_fmt": "yuv420p",
+        "width": 1920,
+        "height": 1080,
+        "time_base": "1/15360",
+        "r_frame_rate": 30.0,
+        "avg_frame_rate": 30.0,
+        "has_audio": true,
+        "audio_codec": "aac",
+        "p0_h264_native": false
+      },
+      "authorization": {
+        "benchmark": "video_mme_v2",
+        "source_repo_url": "https://huggingface.co/datasets/MME-Benchmarks/Video-MME-v2",
+        "license_name": "academic_benchmark_public_research",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "Public academic video benchmark on HuggingFace (MME-Benchmarks/Video-MME-v2). No redistribution; stored locally under gitignored data/. Cloud egress to any third-party LLM requires explicit M0.0 cloud_egress_authorized consent."
+      }
+    },
+    {
+      "artifact_id": "vg_ae11_start",
+      "benchmark": "videogui",
+      "split": "d1_dev_extra",
+      "media_kind": "video",
+      "original_id": "AE_11/start.mp4",
+      "source_group_id": "videogui:AE_11",
+      "task_id": "AE_11",
+      "source_video_url": null,
+      "relative_path": "data/datasets/videogui/d1_dev_extra/vg_ae11_start.mp4",
+      "byte_size": 6529794,
+      "sha256": "74eee0ce6cdd3a9aaaf0212d732b940243d961d274b8185ef34a1a0e4e961736",
+      "question_count": 0,
+      "task_categories": [],
+      "role_summary": "After Effects D1 extra dev clip (paired with Mid-Plan GUI steps)",
+      "ffprobe": {
+        "duration_ms": 5005,
+        "start_time_ms": 0,
+        "video_codec": "h264",
+        "pix_fmt": "yuv420p",
+        "width": 1280,
+        "height": 720,
+        "time_base": "1/24000",
+        "r_frame_rate": 23.976,
+        "avg_frame_rate": 23.976,
+        "has_audio": false,
+        "audio_codec": null,
+        "p0_h264_native": true
+      },
+      "authorization": {
+        "benchmark": "videogui",
+        "source_repo_url": "https://github.com/showlab/VideoGUI",
+        "license_name": "academic_benchmark_unspecified_osi_license",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "NeurIPS 2024 D&B public academic benchmark (showlab/VideoGUI & official HuggingFace org VideoGUI/*). GitHub repo has no OSI LICENSE file; restricted to local non-commercial evaluation and stored under gitignored data/."
+      }
+    },
+    {
+      "artifact_id": "vg_cc11_start",
+      "benchmark": "videogui",
+      "split": "d1_dev_extra",
+      "media_kind": "video",
+      "original_id": "CC_11/start.mp4",
+      "source_group_id": "videogui:CC_11",
+      "task_id": "CC_11",
+      "source_video_url": null,
+      "relative_path": "data/datasets/videogui/d1_dev_extra/vg_cc11_start.mp4",
+      "byte_size": 16593198,
+      "sha256": "7b881b35aa31b34c00191d499bbf249f0f767324d9f9a2e7e6b79c77e597fd6e",
+      "question_count": 0,
+      "task_categories": [],
+      "role_summary": "CapCut D1 extra dev clip (paired with Mid-Plan GUI steps)",
+      "ffprobe": {
+        "duration_ms": 18367,
+        "start_time_ms": 0,
+        "video_codec": "h264",
+        "pix_fmt": "yuv420p",
+        "width": 1920,
+        "height": 1080,
+        "time_base": "1/30",
+        "r_frame_rate": 30.0,
+        "avg_frame_rate": 30.0,
+        "has_audio": true,
+        "audio_codec": "aac",
+        "p0_h264_native": true
+      },
+      "authorization": {
+        "benchmark": "videogui",
+        "source_repo_url": "https://github.com/showlab/VideoGUI",
+        "license_name": "academic_benchmark_unspecified_osi_license",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "NeurIPS 2024 D&B public academic benchmark (showlab/VideoGUI & official HuggingFace org VideoGUI/*). GitHub repo has no OSI LICENSE file; restricted to local non-commercial evaluation and stored under gitignored data/."
+      }
+    },
+    {
+      "artifact_id": "ocr_905",
+      "benchmark": "mme_videoocr",
+      "split": "d1_dev_extra",
+      "media_kind": "video",
+      "original_id": "905",
+      "source_group_id": "mme_videoocr:905",
+      "task_id": null,
+      "source_video_url": null,
+      "relative_path": "data/datasets/mme_videoocr/d1_dev_extra/ocr_905.mp4",
+      "byte_size": 2930628,
+      "sha256": "db685fbae7b3926f5a2da7dad9066c89dbbe006cc2fdd69debd07a86c13f271a",
+      "question_count": 3,
+      "task_categories": [
+        "Change_Detection_and_Tracking",
+        "Text_Grounding"
+      ],
+      "role_summary": "22s GUI text-box typing & change detection (3 Qs; M0-A1 order sample)",
+      "ffprobe": {
+        "duration_ms": 22033,
+        "start_time_ms": 0,
+        "video_codec": "h264",
+        "pix_fmt": "yuv420p",
+        "width": 1920,
+        "height": 1080,
+        "time_base": "1/15360",
+        "r_frame_rate": 30.0,
+        "avg_frame_rate": 30.0,
+        "has_audio": false,
+        "audio_codec": null,
+        "p0_h264_native": true
+      },
+      "authorization": {
+        "benchmark": "mme_videoocr",
+        "source_repo_url": "https://huggingface.co/datasets/DogNeverSleep/MME-VideoOCR_Dataset",
+        "license_name": "CC-BY-NC-4.0",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "Dataset card specifies CC-BY-NC 4.0, academic research only; original video copyright remains with respective owners; stored locally under gitignored data/."
+      }
+    },
+    {
+      "artifact_id": "ocr_903",
+      "benchmark": "mme_videoocr",
+      "split": "d1_dev_extra",
+      "media_kind": "video",
+      "original_id": "903",
+      "source_group_id": "mme_videoocr:903",
+      "task_id": null,
+      "source_video_url": null,
+      "relative_path": "data/datasets/mme_videoocr/d1_dev_extra/ocr_903.mp4",
+      "byte_size": 1667860,
+      "sha256": "e58bbded4200f15d8085c984dd1ba1f74370fafd0753506bc140c9d6adf05302",
+      "question_count": 2,
+      "task_categories": [
+        "Attribute_Recognition"
+      ],
+      "role_summary": "30s Chinese small-text OCR counting (2 Qs; M0-A1 Chinese text sample)",
+      "ffprobe": {
+        "duration_ms": 30000,
+        "start_time_ms": 0,
+        "video_codec": "h264",
+        "pix_fmt": "yuv420p",
+        "width": 1280,
+        "height": 720,
+        "time_base": "1/12800",
+        "r_frame_rate": 25.0,
+        "avg_frame_rate": 25.0,
+        "has_audio": false,
+        "audio_codec": null,
+        "p0_h264_native": true
+      },
+      "authorization": {
+        "benchmark": "mme_videoocr",
+        "source_repo_url": "https://huggingface.co/datasets/DogNeverSleep/MME-VideoOCR_Dataset",
+        "license_name": "CC-BY-NC-4.0",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "Dataset card specifies CC-BY-NC 4.0, academic research only; original video copyright remains with respective owners; stored locally under gitignored data/."
+      }
+    },
+    {
+      "artifact_id": "ocr_1243",
+      "benchmark": "mme_videoocr",
+      "split": "d1_dev_extra",
+      "media_kind": "video",
+      "original_id": "1243",
+      "source_group_id": "mme_videoocr:1243",
+      "task_id": null,
+      "source_video_url": null,
+      "relative_path": "data/datasets/mme_videoocr/d1_dev_extra/ocr_1243.mp4",
+      "byte_size": 892731,
+      "sha256": "b181c94e62dcaf65000543021ca0cc50104b8cf06ab6f53174bf07dcd823bde2",
+      "question_count": 2,
+      "task_categories": [
+        "Text_Based_Reasoning"
+      ],
+      "role_summary": "37s IDE code-screen text reasoning (2 Qs; M0-A1 code small-text sample)",
+      "ffprobe": {
+        "duration_ms": 37000,
+        "start_time_ms": 0,
+        "video_codec": "h264",
+        "pix_fmt": "yuv420p",
+        "width": 1280,
+        "height": 720,
+        "time_base": "1/15360",
+        "r_frame_rate": 30.0,
+        "avg_frame_rate": 30.0,
+        "has_audio": true,
+        "audio_codec": "aac",
+        "p0_h264_native": true
+      },
+      "authorization": {
+        "benchmark": "mme_videoocr",
+        "source_repo_url": "https://huggingface.co/datasets/DogNeverSleep/MME-VideoOCR_Dataset",
+        "license_name": "CC-BY-NC-4.0",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "Dataset card specifies CC-BY-NC 4.0, academic research only; original video copyright remains with respective owners; stored locally under gitignored data/."
+      }
+    },
+    {
+      "artifact_id": "ocr_935",
+      "benchmark": "mme_videoocr",
+      "split": "d1_dev_extra",
+      "media_kind": "video",
+      "original_id": "935",
+      "source_group_id": "mme_videoocr:935",
+      "task_id": null,
+      "source_video_url": null,
+      "relative_path": "data/datasets/mme_videoocr/d1_dev_extra/ocr_935.mp4",
+      "byte_size": 11853518,
+      "sha256": "3ef0a91283abe77975f087e30205b32997cef49757c117de06a3fefcb856167d",
+      "question_count": 3,
+      "task_categories": [
+        "Text_Grounding",
+        "Text_Recognition"
+      ],
+      "role_summary": "30s temporal grounding + text recognition (3 Qs)",
+      "ffprobe": {
+        "duration_ms": 30030,
+        "start_time_ms": 0,
+        "video_codec": "h264",
+        "pix_fmt": "yuv420p",
+        "width": 1920,
+        "height": 1080,
+        "time_base": "1/11988",
+        "r_frame_rate": 59.94,
+        "avg_frame_rate": 59.94,
+        "has_audio": false,
+        "audio_codec": null,
+        "p0_h264_native": true
+      },
+      "authorization": {
+        "benchmark": "mme_videoocr",
+        "source_repo_url": "https://huggingface.co/datasets/DogNeverSleep/MME-VideoOCR_Dataset",
+        "license_name": "CC-BY-NC-4.0",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "Dataset card specifies CC-BY-NC 4.0, academic research only; original video copyright remains with respective owners; stored locally under gitignored data/."
+      }
+    },
+    {
+      "artifact_id": "vmme_011",
+      "benchmark": "video_mme_v2",
+      "split": "d1_dev_extra",
+      "media_kind": "video",
+      "original_id": "011",
+      "source_group_id": "video_mme_v2:011",
+      "task_id": null,
+      "source_video_url": "https://www.youtube.com/watch?v=38y_1EWIE9I",
+      "relative_path": "data/datasets/video_mme_v2/d1_dev_extra/vmme_011.mp4",
+      "byte_size": 36678576,
+      "sha256": "e335e5a6b42d9e5973e635f0cd442ae18fae6c55733b24c58214cd8f3ba92761",
+      "question_count": 4,
+      "task_categories": [
+        "Complex Plot Comprehension",
+        "Frame-Only",
+        "Temporal Reasoning"
+      ],
+      "role_summary": "Frame-Only + Temporal Reasoning ~185s (4 Qs + subtitles)",
+      "ffprobe": {
+        "duration_ms": 281449,
+        "start_time_ms": 0,
+        "video_codec": "hevc",
+        "pix_fmt": "yuv420p",
+        "width": 1920,
+        "height": 1080,
+        "time_base": "1/15360",
+        "r_frame_rate": 30.0,
+        "avg_frame_rate": 30.0,
+        "has_audio": true,
+        "audio_codec": "aac",
+        "p0_h264_native": false
+      },
+      "authorization": {
+        "benchmark": "video_mme_v2",
+        "source_repo_url": "https://huggingface.co/datasets/MME-Benchmarks/Video-MME-v2",
+        "license_name": "academic_benchmark_public_research",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "Public academic video benchmark on HuggingFace (MME-Benchmarks/Video-MME-v2). No redistribution; stored locally under gitignored data/. Cloud egress to any third-party LLM requires explicit M0.0 cloud_egress_authorized consent."
+      }
+    },
+    {
+      "artifact_id": "vmme_082",
+      "benchmark": "video_mme_v2",
+      "split": "d1_dev_extra",
+      "media_kind": "video",
+      "original_id": "082",
+      "source_group_id": "video_mme_v2:082",
+      "task_id": null,
+      "source_video_url": "https://www.youtube.com/watch?v=jF__b2pV94E",
+      "relative_path": "data/datasets/video_mme_v2/d1_dev_extra/vmme_082.mp4",
+      "byte_size": 6129215,
+      "sha256": "657011a59b2f1006a4d0d6fa928609047bc8dbae2bfb0b11830843ca591e90d7",
+      "question_count": 4,
+      "task_categories": [
+        "Frame-Only",
+        "Video-Based Knowledge Acquisition"
+      ],
+      "role_summary": "Frame-Only + Visual Diagram Knowledge ~182s (4 Qs + subtitles)",
+      "ffprobe": {
+        "duration_ms": 182788,
+        "start_time_ms": 0,
+        "video_codec": "hevc",
+        "pix_fmt": "yuv420p",
+        "width": 1920,
+        "height": 1080,
+        "time_base": "1/15360",
+        "r_frame_rate": 30.0,
+        "avg_frame_rate": 30.0,
+        "has_audio": true,
+        "audio_codec": "aac",
+        "p0_h264_native": false
+      },
+      "authorization": {
+        "benchmark": "video_mme_v2",
+        "source_repo_url": "https://huggingface.co/datasets/MME-Benchmarks/Video-MME-v2",
+        "license_name": "academic_benchmark_public_research",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "Public academic video benchmark on HuggingFace (MME-Benchmarks/Video-MME-v2). No redistribution; stored locally under gitignored data/. Cloud egress to any third-party LLM requires explicit M0.0 cloud_egress_authorized consent."
+      }
+    },
+    {
+      "artifact_id": "vmme_104",
+      "benchmark": "video_mme_v2",
+      "split": "d1_dev_extra",
+      "media_kind": "video",
+      "original_id": "104",
+      "source_group_id": "video_mme_v2:104",
+      "task_id": null,
+      "source_video_url": "https://www.youtube.com/watch?v=eytVwjdJHkg",
+      "relative_path": "data/datasets/video_mme_v2/d1_dev_extra/vmme_104.mp4",
+      "byte_size": 32479222,
+      "sha256": "da8330ae6e5eccccb6868109ce12a4a3fb1a142ab6814f7b69c93949759a5d60",
+      "question_count": 4,
+      "task_categories": [
+        "Change"
+      ],
+      "role_summary": "Slow temporal Change progression ~176s (4 Qs + subtitles)",
+      "ffprobe": {
+        "duration_ms": 300304,
+        "start_time_ms": 0,
+        "video_codec": "hevc",
+        "pix_fmt": "yuv420p",
+        "width": 1920,
+        "height": 1080,
+        "time_base": "1/15360",
+        "r_frame_rate": 30.0,
+        "avg_frame_rate": 30.0,
+        "has_audio": true,
+        "audio_codec": "aac",
+        "p0_h264_native": false
+      },
+      "authorization": {
+        "benchmark": "video_mme_v2",
+        "source_repo_url": "https://huggingface.co/datasets/MME-Benchmarks/Video-MME-v2",
+        "license_name": "academic_benchmark_public_research",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "Public academic video benchmark on HuggingFace (MME-Benchmarks/Video-MME-v2). No redistribution; stored locally under gitignored data/. Cloud egress to any third-party LLM requires explicit M0.0 cloud_egress_authorized consent."
+      }
+    },
+    {
+      "artifact_id": "vmme_113",
+      "benchmark": "video_mme_v2",
+      "split": "d1_dev_extra",
+      "media_kind": "video",
+      "original_id": "113",
+      "source_group_id": "video_mme_v2:113",
+      "task_id": null,
+      "source_video_url": "https://www.youtube.com/watch?v=pjk4WIYZpX8",
+      "relative_path": "data/datasets/video_mme_v2/d1_dev_extra/vmme_113.mp4",
+      "byte_size": 19050444,
+      "sha256": "10f3c8712b2a5b529984bc86e927da1c8423528ecbde019ba41c3255069c594a",
+      "question_count": 4,
+      "task_categories": [
+        "Frame-Only"
+      ],
+      "role_summary": "Frame-Only small sign text reading ~367s (4 Qs + subtitles)",
+      "ffprobe": {
+        "duration_ms": 401496,
+        "start_time_ms": 0,
+        "video_codec": "hevc",
+        "pix_fmt": "yuv420p",
+        "width": 1920,
+        "height": 1080,
+        "time_base": "1/24000",
+        "r_frame_rate": 23.976,
+        "avg_frame_rate": 23.976,
+        "has_audio": true,
+        "audio_codec": "aac",
+        "p0_h264_native": false
+      },
+      "authorization": {
+        "benchmark": "video_mme_v2",
+        "source_repo_url": "https://huggingface.co/datasets/MME-Benchmarks/Video-MME-v2",
+        "license_name": "academic_benchmark_public_research",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "Public academic video benchmark on HuggingFace (MME-Benchmarks/Video-MME-v2). No redistribution; stored locally under gitignored data/. Cloud egress to any third-party LLM requires explicit M0.0 cloud_egress_authorized consent."
+      }
+    },
+    {
+      "artifact_id": "vg_pr18_start",
+      "benchmark": "videogui",
+      "split": "m6_holdout",
+      "media_kind": "video",
+      "original_id": "PR_18/start.mp4",
+      "source_group_id": "videogui:PR_18",
+      "task_id": "PR_18",
+      "source_video_url": null,
+      "relative_path": "data/datasets/videogui/m6_holdout/vg_pr18_start.mp4",
+      "byte_size": 8255591,
+      "sha256": "6d283a9597299a73c50f0ef4544d7a948fef52d7843a3024032ff7318ded7ff4",
+      "question_count": 0,
+      "task_categories": [],
+      "role_summary": "M6 blind holdout: disjoint Premiere Pro task",
+      "ffprobe": {
+        "duration_ms": 8926,
+        "start_time_ms": 0,
+        "video_codec": "h264",
+        "pix_fmt": "yuv420p",
+        "width": 1280,
+        "height": 720,
+        "time_base": "1/24000",
+        "r_frame_rate": 23.976,
+        "avg_frame_rate": 23.976,
+        "has_audio": true,
+        "audio_codec": "aac",
+        "p0_h264_native": true
+      },
+      "authorization": {
+        "benchmark": "videogui",
+        "source_repo_url": "https://github.com/showlab/VideoGUI",
+        "license_name": "academic_benchmark_unspecified_osi_license",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "NeurIPS 2024 D&B public academic benchmark (showlab/VideoGUI & official HuggingFace org VideoGUI/*). GitHub repo has no OSI LICENSE file; restricted to local non-commercial evaluation and stored under gitignored data/."
+      }
+    },
+    {
+      "artifact_id": "vg_cc12_start",
+      "benchmark": "videogui",
+      "split": "m6_holdout",
+      "media_kind": "video",
+      "original_id": "CC_12/start.mp4",
+      "source_group_id": "videogui:CC_12",
+      "task_id": "CC_12",
+      "source_video_url": null,
+      "relative_path": "data/datasets/videogui/m6_holdout/vg_cc12_start.mp4",
+      "byte_size": 22772083,
+      "sha256": "e7810059e97f49522a52e67c8563c19182a5d445831c26574f70d2399dd0ef61",
+      "question_count": 0,
+      "task_categories": [],
+      "role_summary": "M6 blind holdout: disjoint CapCut task",
+      "ffprobe": {
+        "duration_ms": 18181,
+        "start_time_ms": 0,
+        "video_codec": "h264",
+        "pix_fmt": "yuv420p",
+        "width": 1920,
+        "height": 1080,
+        "time_base": "1/30",
+        "r_frame_rate": 30.0,
+        "avg_frame_rate": 30.0,
+        "has_audio": true,
+        "audio_codec": "aac",
+        "p0_h264_native": true
+      },
+      "authorization": {
+        "benchmark": "videogui",
+        "source_repo_url": "https://github.com/showlab/VideoGUI",
+        "license_name": "academic_benchmark_unspecified_osi_license",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "NeurIPS 2024 D&B public academic benchmark (showlab/VideoGUI & official HuggingFace org VideoGUI/*). GitHub repo has no OSI LICENSE file; restricted to local non-commercial evaluation and stored under gitignored data/."
+      }
+    },
+    {
+      "artifact_id": "ocr_722",
+      "benchmark": "mme_videoocr",
+      "split": "m6_holdout",
+      "media_kind": "video",
+      "original_id": "722",
+      "source_group_id": "mme_videoocr:722",
+      "task_id": null,
+      "source_video_url": null,
+      "relative_path": "data/datasets/mme_videoocr/m6_holdout/ocr_722.mp4",
+      "byte_size": 3967411,
+      "sha256": "6a9a71057d1f4f79ee457a4cd005a1acc2ffdbb63a83619526f820775fd75c2c",
+      "question_count": 0,
+      "task_categories": [],
+      "role_summary": "D1 independently selected authorized holdout replacement. Upstream benchmark question rows imported for this item: 0.",
+      "ffprobe": {
+        "duration_ms": 90000,
+        "start_time_ms": 0,
+        "video_codec": "h264",
+        "pix_fmt": "yuv420p",
+        "width": 640,
+        "height": 360,
+        "time_base": "1/19184",
+        "r_frame_rate": 23.98,
+        "avg_frame_rate": 23.98,
+        "has_audio": true,
+        "audio_codec": "aac",
+        "p0_h264_native": true
+      },
+      "authorization": {
+        "benchmark": "mme_videoocr",
+        "source_repo_url": "https://huggingface.co/datasets/DogNeverSleep/MME-VideoOCR_Dataset",
+        "license_name": "CC-BY-NC-4.0",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-27T00:23:47.713709+00:00",
+        "notes": "Dataset card specifies CC-BY-NC 4.0, academic research only; original video copyright remains with respective owners; stored locally under gitignored data/."
+      }
+    },
+    {
+      "artifact_id": "ocr_968",
+      "benchmark": "mme_videoocr",
+      "split": "m6_holdout",
+      "media_kind": "video",
+      "original_id": "968",
+      "source_group_id": "mme_videoocr:968",
+      "task_id": null,
+      "source_video_url": null,
+      "relative_path": "data/datasets/mme_videoocr/m6_holdout/ocr_968.mp4",
+      "byte_size": 2086971,
+      "sha256": "ba24e7d3d3554e6769c83a7478b2009e97069dfcb860e6c777fb51cdf6519b5c",
+      "question_count": 2,
+      "task_categories": [
+        "Change_Detection_and_Tracking",
+        "Text_Recognition"
+      ],
+      "role_summary": "M6 blind holdout: disjoint 21s change detection + text",
+      "ffprobe": {
+        "duration_ms": 21059,
+        "start_time_ms": 0,
+        "video_codec": "h264",
+        "pix_fmt": "yuv420p",
+        "width": 1920,
+        "height": 1080,
+        "time_base": "1/19184",
+        "r_frame_rate": 23.98,
+        "avg_frame_rate": 23.98,
+        "has_audio": false,
+        "audio_codec": null,
+        "p0_h264_native": true
+      },
+      "authorization": {
+        "benchmark": "mme_videoocr",
+        "source_repo_url": "https://huggingface.co/datasets/DogNeverSleep/MME-VideoOCR_Dataset",
+        "license_name": "CC-BY-NC-4.0",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "Dataset card specifies CC-BY-NC 4.0, academic research only; original video copyright remains with respective owners; stored locally under gitignored data/."
+      }
+    },
+    {
+      "artifact_id": "vmme_084",
+      "benchmark": "video_mme_v2",
+      "split": "m6_holdout",
+      "media_kind": "video",
+      "original_id": "084",
+      "source_group_id": "video_mme_v2:084",
+      "task_id": null,
+      "source_video_url": "https://www.youtube.com/watch?v=x2WTsgm_UGw",
+      "relative_path": "data/datasets/video_mme_v2/m6_holdout/vmme_084.mp4",
+      "byte_size": 33044185,
+      "sha256": "0d24a8823a8bba787a1113f9679ad5fccdb62b2f42041d424ce1a9d6929d2209",
+      "question_count": 4,
+      "task_categories": [
+        "Action & Motion",
+        "Frame-Only",
+        "Physical World Reasoning"
+      ],
+      "role_summary": "M6 blind holdout: Action & Motion + Physical World Reasoning",
+      "ffprobe": {
+        "duration_ms": 376395,
+        "start_time_ms": 0,
+        "video_codec": "hevc",
+        "pix_fmt": "yuv420p",
+        "width": 1920,
+        "height": 1080,
+        "time_base": "1/15360",
+        "r_frame_rate": 30.0,
+        "avg_frame_rate": 30.0,
+        "has_audio": true,
+        "audio_codec": "aac",
+        "p0_h264_native": false
+      },
+      "authorization": {
+        "benchmark": "video_mme_v2",
+        "source_repo_url": "https://huggingface.co/datasets/MME-Benchmarks/Video-MME-v2",
+        "license_name": "academic_benchmark_public_research",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "Public academic video benchmark on HuggingFace (MME-Benchmarks/Video-MME-v2). No redistribution; stored locally under gitignored data/. Cloud egress to any third-party LLM requires explicit M0.0 cloud_egress_authorized consent."
+      }
+    },
+    {
+      "artifact_id": "vmme_091",
+      "benchmark": "video_mme_v2",
+      "split": "m6_holdout",
+      "media_kind": "video",
+      "original_id": "091",
+      "source_group_id": "video_mme_v2:091",
+      "task_id": null,
+      "source_video_url": "https://www.youtube.com/watch?v=SUK7gg6ry0s",
+      "relative_path": "data/datasets/video_mme_v2/m6_holdout/vmme_091.mp4",
+      "byte_size": 30297512,
+      "sha256": "d0c949e2e3e960301946e0a1629a0b07999924f829c8997d4d1395c2e4f6e917",
+      "question_count": 4,
+      "task_categories": [
+        "Frames & Audio",
+        "Social Behavior Analysis",
+        "Temporal Reasoning"
+      ],
+      "role_summary": "M6 blind holdout: Frames & Audio + Temporal Reasoning",
+      "ffprobe": {
+        "duration_ms": 306968,
+        "start_time_ms": 0,
+        "video_codec": "hevc",
+        "pix_fmt": "yuv420p",
+        "width": 1920,
+        "height": 1080,
+        "time_base": "1/30000",
+        "r_frame_rate": 29.97,
+        "avg_frame_rate": 29.97,
+        "has_audio": true,
+        "audio_codec": "aac",
+        "p0_h264_native": false
+      },
+      "authorization": {
+        "benchmark": "video_mme_v2",
+        "source_repo_url": "https://huggingface.co/datasets/MME-Benchmarks/Video-MME-v2",
+        "license_name": "academic_benchmark_public_research",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "Public academic video benchmark on HuggingFace (MME-Benchmarks/Video-MME-v2). No redistribution; stored locally under gitignored data/. Cloud egress to any third-party LLM requires explicit M0.0 cloud_egress_authorized consent."
+      }
+    },
+    {
+      "artifact_id": "vmme_109",
+      "benchmark": "video_mme_v2",
+      "split": "m6_holdout",
+      "media_kind": "video",
+      "original_id": "109",
+      "source_group_id": "video_mme_v2:109",
+      "task_id": null,
+      "source_video_url": "https://www.youtube.com/watch?v=t2ZJ4bGAtVI",
+      "relative_path": "data/datasets/video_mme_v2/m6_holdout/vmme_109.mp4",
+      "byte_size": 35400821,
+      "sha256": "e9c25d60aa553c566f65c3b10cca3e505cc7d355233376fabea4df98e5d4c45d",
+      "question_count": 4,
+      "task_categories": [
+        "Action & Motion"
+      ],
+      "role_summary": "M6 blind holdout: Action & Motion counting",
+      "ffprobe": {
+        "duration_ms": 264684,
+        "start_time_ms": 0,
+        "video_codec": "hevc",
+        "pix_fmt": "yuv420p",
+        "width": 1920,
+        "height": 1080,
+        "time_base": "1/12800",
+        "r_frame_rate": 50.0,
+        "avg_frame_rate": 50.0,
+        "has_audio": true,
+        "audio_codec": "aac",
+        "p0_h264_native": false
+      },
+      "authorization": {
+        "benchmark": "video_mme_v2",
+        "source_repo_url": "https://huggingface.co/datasets/MME-Benchmarks/Video-MME-v2",
+        "license_name": "academic_benchmark_public_research",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "Public academic video benchmark on HuggingFace (MME-Benchmarks/Video-MME-v2). No redistribution; stored locally under gitignored data/. Cloud egress to any third-party LLM requires explicit M0.0 cloud_egress_authorized consent."
+      }
+    },
+    {
+      "artifact_id": "vmme_191",
+      "benchmark": "video_mme_v2",
+      "split": "m6_holdout",
+      "media_kind": "video",
+      "original_id": "191",
+      "source_group_id": "video_mme_v2:191",
+      "task_id": null,
+      "source_video_url": "https://www.youtube.com/watch?v=_9mG607kOO8",
+      "relative_path": "data/datasets/video_mme_v2/m6_holdout/vmme_191.mp4",
+      "byte_size": 16433017,
+      "sha256": "7d39dc9ec4ff39333b06f735896d8a1c29bd5d4bbdb82677d8a04911daedd561",
+      "question_count": 4,
+      "task_categories": [
+        "Action & Motion"
+      ],
+      "role_summary": "M6 blind holdout: Action & Motion posture/angle reasoning",
+      "ffprobe": {
+        "duration_ms": 356450,
+        "start_time_ms": 0,
+        "video_codec": "hevc",
+        "pix_fmt": "yuv420p",
+        "width": 1906,
+        "height": 1080,
+        "time_base": "1/15360",
+        "r_frame_rate": 30.0,
+        "avg_frame_rate": 30.0,
+        "has_audio": true,
+        "audio_codec": "aac",
+        "p0_h264_native": false
+      },
+      "authorization": {
+        "benchmark": "video_mme_v2",
+        "source_repo_url": "https://huggingface.co/datasets/MME-Benchmarks/Video-MME-v2",
+        "license_name": "academic_benchmark_public_research",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "Public academic video benchmark on HuggingFace (MME-Benchmarks/Video-MME-v2). No redistribution; stored locally under gitignored data/. Cloud egress to any third-party LLM requires explicit M0.0 cloud_egress_authorized consent."
+      }
+    },
+    {
+      "artifact_id": "vg_mid_sd6_s0_start",
+      "benchmark": "videogui",
+      "split": "m0_dev",
+      "media_kind": "screenshot",
+      "original_id": "SD6/subtask_0/screenshot_start",
+      "source_group_id": "videogui:SD6",
+      "task_id": "SD6",
+      "source_video_url": null,
+      "relative_path": "data/datasets/videogui/mid_plan/m0_dev/SD6/subtask_0_screenshot_start.jpg",
+      "byte_size": 217636,
+      "sha256": "dad4db95a9a8b9870ccc163d411d3bec1ee222c926684fc8bb9ad8e20b0333bd",
+      "question_count": 1,
+      "task_categories": [
+        "gui_mid_plan:StableDiffusion"
+      ],
+      "role_summary": "VideoGUI StableDiffusion SD6 subtask 0 screenshot_start (2560x1600)",
+      "image_dimensions": [
+        2560,
+        1600
+      ],
+      "authorization": {
+        "benchmark": "videogui",
+        "source_repo_url": "https://github.com/showlab/VideoGUI",
+        "license_name": "academic_benchmark_unspecified_osi_license",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "NeurIPS 2024 D&B public academic benchmark (showlab/VideoGUI & official HuggingFace org VideoGUI/*). GitHub repo has no OSI LICENSE file; restricted to local non-commercial evaluation and stored under gitignored data/."
+      }
+    },
+    {
+      "artifact_id": "vg_mid_sd6_s0_end",
+      "benchmark": "videogui",
+      "split": "m0_dev",
+      "media_kind": "screenshot",
+      "original_id": "SD6/subtask_0/screenshot_end",
+      "source_group_id": "videogui:SD6",
+      "task_id": "SD6",
+      "source_video_url": null,
+      "relative_path": "data/datasets/videogui/mid_plan/m0_dev/SD6/subtask_0_screenshot_end.jpg",
+      "byte_size": 217636,
+      "sha256": "dad4db95a9a8b9870ccc163d411d3bec1ee222c926684fc8bb9ad8e20b0333bd",
+      "question_count": 1,
+      "task_categories": [
+        "gui_mid_plan:StableDiffusion"
+      ],
+      "role_summary": "VideoGUI StableDiffusion SD6 subtask 0 screenshot_end (2560x1600)",
+      "image_dimensions": [
+        2560,
+        1600
+      ],
+      "authorization": {
+        "benchmark": "videogui",
+        "source_repo_url": "https://github.com/showlab/VideoGUI",
+        "license_name": "academic_benchmark_unspecified_osi_license",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "NeurIPS 2024 D&B public academic benchmark (showlab/VideoGUI & official HuggingFace org VideoGUI/*). GitHub repo has no OSI LICENSE file; restricted to local non-commercial evaluation and stored under gitignored data/."
+      }
+    },
+    {
+      "artifact_id": "vg_mid_sd6_s1_start",
+      "benchmark": "videogui",
+      "split": "m0_dev",
+      "media_kind": "screenshot",
+      "original_id": "SD6/subtask_1/screenshot_start",
+      "source_group_id": "videogui:SD6",
+      "task_id": "SD6",
+      "source_video_url": null,
+      "relative_path": "data/datasets/videogui/mid_plan/m0_dev/SD6/subtask_1_screenshot_start.jpg",
+      "byte_size": 219119,
+      "sha256": "7245e0eadfca56c7339d9adfa7df28c639a340870458f2814407d7a1374d5a73",
+      "question_count": 1,
+      "task_categories": [
+        "gui_mid_plan:StableDiffusion"
+      ],
+      "role_summary": "VideoGUI StableDiffusion SD6 subtask 1 screenshot_start (2560x1600)",
+      "image_dimensions": [
+        2560,
+        1600
+      ],
+      "authorization": {
+        "benchmark": "videogui",
+        "source_repo_url": "https://github.com/showlab/VideoGUI",
+        "license_name": "academic_benchmark_unspecified_osi_license",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "NeurIPS 2024 D&B public academic benchmark (showlab/VideoGUI & official HuggingFace org VideoGUI/*). GitHub repo has no OSI LICENSE file; restricted to local non-commercial evaluation and stored under gitignored data/."
+      }
+    },
+    {
+      "artifact_id": "vg_mid_sd6_s1_end",
+      "benchmark": "videogui",
+      "split": "m0_dev",
+      "media_kind": "screenshot",
+      "original_id": "SD6/subtask_1/screenshot_end",
+      "source_group_id": "videogui:SD6",
+      "task_id": "SD6",
+      "source_video_url": null,
+      "relative_path": "data/datasets/videogui/mid_plan/m0_dev/SD6/subtask_1_screenshot_end.jpg",
+      "byte_size": 219460,
+      "sha256": "b898ddac578940d1a1aaea2cb04cf1525e218c93854be0631f636849d05b2627",
+      "question_count": 1,
+      "task_categories": [
+        "gui_mid_plan:StableDiffusion"
+      ],
+      "role_summary": "VideoGUI StableDiffusion SD6 subtask 1 screenshot_end (2560x1600)",
+      "image_dimensions": [
+        2560,
+        1600
+      ],
+      "authorization": {
+        "benchmark": "videogui",
+        "source_repo_url": "https://github.com/showlab/VideoGUI",
+        "license_name": "academic_benchmark_unspecified_osi_license",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "NeurIPS 2024 D&B public academic benchmark (showlab/VideoGUI & official HuggingFace org VideoGUI/*). GitHub repo has no OSI LICENSE file; restricted to local non-commercial evaluation and stored under gitignored data/."
+      }
+    },
+    {
+      "artifact_id": "vg_mid_ps_16_s0_start",
+      "benchmark": "videogui",
+      "split": "m6_holdout",
+      "media_kind": "screenshot",
+      "original_id": "PS_16/subtask_0/screenshot_start",
+      "source_group_id": "videogui:PS_16",
+      "task_id": "PS_16",
+      "source_video_url": null,
+      "relative_path": "data/datasets/videogui/mid_plan/m6_holdout/PS_16/subtask_0_screenshot_start.jpg",
+      "byte_size": 554886,
+      "sha256": "9b1ec6f9568c29df4a9cb4d95e7bf68da13c554139a93f13bde6a0b746920ee6",
+      "question_count": 1,
+      "task_categories": [
+        "gui_mid_plan:PS"
+      ],
+      "role_summary": "VideoGUI PS PS_16 subtask 0 screenshot_start (2560x1600)",
+      "image_dimensions": [
+        2560,
+        1600
+      ],
+      "authorization": {
+        "benchmark": "videogui",
+        "source_repo_url": "https://github.com/showlab/VideoGUI",
+        "license_name": "academic_benchmark_unspecified_osi_license",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "NeurIPS 2024 D&B public academic benchmark (showlab/VideoGUI & official HuggingFace org VideoGUI/*). GitHub repo has no OSI LICENSE file; restricted to local non-commercial evaluation and stored under gitignored data/."
+      }
+    },
+    {
+      "artifact_id": "vg_mid_ps_16_s0_end",
+      "benchmark": "videogui",
+      "split": "m6_holdout",
+      "media_kind": "screenshot",
+      "original_id": "PS_16/subtask_0/screenshot_end",
+      "source_group_id": "videogui:PS_16",
+      "task_id": "PS_16",
+      "source_video_url": null,
+      "relative_path": "data/datasets/videogui/mid_plan/m6_holdout/PS_16/subtask_0_screenshot_end.jpg",
+      "byte_size": 585600,
+      "sha256": "e22d4cb371036599bbd673419e266c6204189ffa40cce7d126990a3e655342ee",
+      "question_count": 1,
+      "task_categories": [
+        "gui_mid_plan:PS"
+      ],
+      "role_summary": "VideoGUI PS PS_16 subtask 0 screenshot_end (2560x1600)",
+      "image_dimensions": [
+        2560,
+        1600
+      ],
+      "authorization": {
+        "benchmark": "videogui",
+        "source_repo_url": "https://github.com/showlab/VideoGUI",
+        "license_name": "academic_benchmark_unspecified_osi_license",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "NeurIPS 2024 D&B public academic benchmark (showlab/VideoGUI & official HuggingFace org VideoGUI/*). GitHub repo has no OSI LICENSE file; restricted to local non-commercial evaluation and stored under gitignored data/."
+      }
+    },
+    {
+      "artifact_id": "vg_mid_ps_16_s1_start",
+      "benchmark": "videogui",
+      "split": "m6_holdout",
+      "media_kind": "screenshot",
+      "original_id": "PS_16/subtask_1/screenshot_start",
+      "source_group_id": "videogui:PS_16",
+      "task_id": "PS_16",
+      "source_video_url": null,
+      "relative_path": "data/datasets/videogui/mid_plan/m6_holdout/PS_16/subtask_1_screenshot_start.jpg",
+      "byte_size": 548775,
+      "sha256": "95e1e0d56c1bd4c14fb70c5a179852ada0cd64cdd8230a0febee2da75215adad",
+      "question_count": 1,
+      "task_categories": [
+        "gui_mid_plan:PS"
+      ],
+      "role_summary": "VideoGUI PS PS_16 subtask 1 screenshot_start (2560x1600)",
+      "image_dimensions": [
+        2560,
+        1600
+      ],
+      "authorization": {
+        "benchmark": "videogui",
+        "source_repo_url": "https://github.com/showlab/VideoGUI",
+        "license_name": "academic_benchmark_unspecified_osi_license",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "NeurIPS 2024 D&B public academic benchmark (showlab/VideoGUI & official HuggingFace org VideoGUI/*). GitHub repo has no OSI LICENSE file; restricted to local non-commercial evaluation and stored under gitignored data/."
+      }
+    },
+    {
+      "artifact_id": "vg_mid_ps_16_s1_end",
+      "benchmark": "videogui",
+      "split": "m6_holdout",
+      "media_kind": "screenshot",
+      "original_id": "PS_16/subtask_1/screenshot_end",
+      "source_group_id": "videogui:PS_16",
+      "task_id": "PS_16",
+      "source_video_url": null,
+      "relative_path": "data/datasets/videogui/mid_plan/m6_holdout/PS_16/subtask_1_screenshot_end.jpg",
+      "byte_size": 150696,
+      "sha256": "99e87011fc1dc2ed359271544eaef2439678a73c78d3f7128d8d51784469427f",
+      "question_count": 1,
+      "task_categories": [
+        "gui_mid_plan:PS"
+      ],
+      "role_summary": "VideoGUI PS PS_16 subtask 1 screenshot_end (2560x1600)",
+      "image_dimensions": [
+        2560,
+        1600
+      ],
+      "authorization": {
+        "benchmark": "videogui",
+        "source_repo_url": "https://github.com/showlab/VideoGUI",
+        "license_name": "academic_benchmark_unspecified_osi_license",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "NeurIPS 2024 D&B public academic benchmark (showlab/VideoGUI & official HuggingFace org VideoGUI/*). GitHub repo has no OSI LICENSE file; restricted to local non-commercial evaluation and stored under gitignored data/."
+      }
+    },
+    {
+      "artifact_id": "vg_mid_ps_10_s0_start",
+      "benchmark": "videogui",
+      "split": "m0_dev",
+      "media_kind": "screenshot",
+      "original_id": "PS_10/subtask_0/screenshot_start",
+      "source_group_id": "videogui:PS_10",
+      "task_id": "PS_10",
+      "source_video_url": null,
+      "relative_path": "data/datasets/videogui/mid_plan/m0_dev/PS_10/subtask_0_screenshot_start.jpg",
+      "byte_size": 280337,
+      "sha256": "dbfc331979982073d211f9428fa8d507d185045f9899815bb27b2d3d567cb97f",
+      "question_count": 1,
+      "task_categories": [
+        "gui_mid_plan:PS"
+      ],
+      "role_summary": "VideoGUI PS PS_10 subtask 0 screenshot_start (2560x1600)",
+      "image_dimensions": [
+        2560,
+        1600
+      ],
+      "authorization": {
+        "benchmark": "videogui",
+        "source_repo_url": "https://github.com/showlab/VideoGUI",
+        "license_name": "academic_benchmark_unspecified_osi_license",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "NeurIPS 2024 D&B public academic benchmark (showlab/VideoGUI & official HuggingFace org VideoGUI/*). GitHub repo has no OSI LICENSE file; restricted to local non-commercial evaluation and stored under gitignored data/."
+      }
+    },
+    {
+      "artifact_id": "vg_mid_ps_10_s0_end",
+      "benchmark": "videogui",
+      "split": "m0_dev",
+      "media_kind": "screenshot",
+      "original_id": "PS_10/subtask_0/screenshot_end",
+      "source_group_id": "videogui:PS_10",
+      "task_id": "PS_10",
+      "source_video_url": null,
+      "relative_path": "data/datasets/videogui/mid_plan/m0_dev/PS_10/subtask_0_screenshot_end.jpg",
+      "byte_size": 278471,
+      "sha256": "7c3256a6b7c964d82adf835128d5dafc1f34e42e3fe1d35c8e0f7a8c6dea24d2",
+      "question_count": 1,
+      "task_categories": [
+        "gui_mid_plan:PS"
+      ],
+      "role_summary": "VideoGUI PS PS_10 subtask 0 screenshot_end (2560x1600)",
+      "image_dimensions": [
+        2560,
+        1600
+      ],
+      "authorization": {
+        "benchmark": "videogui",
+        "source_repo_url": "https://github.com/showlab/VideoGUI",
+        "license_name": "academic_benchmark_unspecified_osi_license",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "NeurIPS 2024 D&B public academic benchmark (showlab/VideoGUI & official HuggingFace org VideoGUI/*). GitHub repo has no OSI LICENSE file; restricted to local non-commercial evaluation and stored under gitignored data/."
+      }
+    },
+    {
+      "artifact_id": "vg_mid_ps_10_s1_start",
+      "benchmark": "videogui",
+      "split": "m0_dev",
+      "media_kind": "screenshot",
+      "original_id": "PS_10/subtask_1/screenshot_start",
+      "source_group_id": "videogui:PS_10",
+      "task_id": "PS_10",
+      "source_video_url": null,
+      "relative_path": "data/datasets/videogui/mid_plan/m0_dev/PS_10/subtask_1_screenshot_start.jpg",
+      "byte_size": 269160,
+      "sha256": "8d09898ec9d1531626448a28cc73e679674120fa4e3626a551956420a411bf4f",
+      "question_count": 1,
+      "task_categories": [
+        "gui_mid_plan:PS"
+      ],
+      "role_summary": "VideoGUI PS PS_10 subtask 1 screenshot_start (2560x1600)",
+      "image_dimensions": [
+        2560,
+        1600
+      ],
+      "authorization": {
+        "benchmark": "videogui",
+        "source_repo_url": "https://github.com/showlab/VideoGUI",
+        "license_name": "academic_benchmark_unspecified_osi_license",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "NeurIPS 2024 D&B public academic benchmark (showlab/VideoGUI & official HuggingFace org VideoGUI/*). GitHub repo has no OSI LICENSE file; restricted to local non-commercial evaluation and stored under gitignored data/."
+      }
+    },
+    {
+      "artifact_id": "vg_mid_ps_10_s1_end",
+      "benchmark": "videogui",
+      "split": "m0_dev",
+      "media_kind": "screenshot",
+      "original_id": "PS_10/subtask_1/screenshot_end",
+      "source_group_id": "videogui:PS_10",
+      "task_id": "PS_10",
+      "source_video_url": null,
+      "relative_path": "data/datasets/videogui/mid_plan/m0_dev/PS_10/subtask_1_screenshot_end.jpg",
+      "byte_size": 290283,
+      "sha256": "6b0a60db85a8def0993b3587c3655d4ba6219ee56f2c901fd8b0a2488314a557",
+      "question_count": 1,
+      "task_categories": [
+        "gui_mid_plan:PS"
+      ],
+      "role_summary": "VideoGUI PS PS_10 subtask 1 screenshot_end (2560x1600)",
+      "image_dimensions": [
+        2560,
+        1600
+      ],
+      "authorization": {
+        "benchmark": "videogui",
+        "source_repo_url": "https://github.com/showlab/VideoGUI",
+        "license_name": "academic_benchmark_unspecified_osi_license",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "NeurIPS 2024 D&B public academic benchmark (showlab/VideoGUI & official HuggingFace org VideoGUI/*). GitHub repo has no OSI LICENSE file; restricted to local non-commercial evaluation and stored under gitignored data/."
+      }
+    },
+    {
+      "artifact_id": "vg_mid_ae_11_s0_start",
+      "benchmark": "videogui",
+      "split": "d1_dev_extra",
+      "media_kind": "screenshot",
+      "original_id": "AE_11/subtask_0/screenshot_start",
+      "source_group_id": "videogui:AE_11",
+      "task_id": "AE_11",
+      "source_video_url": null,
+      "relative_path": "data/datasets/videogui/mid_plan/d1_dev_extra/AE_11/subtask_0_screenshot_start.jpg",
+      "byte_size": 257627,
+      "sha256": "9aa9103fffc4577d14752e2d67b74486310cf7d4db8ba4aef44aab295078c943",
+      "question_count": 1,
+      "task_categories": [
+        "gui_mid_plan:AE"
+      ],
+      "role_summary": "VideoGUI AE AE_11 subtask 0 screenshot_start (2560x1600)",
+      "image_dimensions": [
+        2560,
+        1600
+      ],
+      "authorization": {
+        "benchmark": "videogui",
+        "source_repo_url": "https://github.com/showlab/VideoGUI",
+        "license_name": "academic_benchmark_unspecified_osi_license",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "NeurIPS 2024 D&B public academic benchmark (showlab/VideoGUI & official HuggingFace org VideoGUI/*). GitHub repo has no OSI LICENSE file; restricted to local non-commercial evaluation and stored under gitignored data/."
+      }
+    },
+    {
+      "artifact_id": "vg_mid_ae_11_s0_end",
+      "benchmark": "videogui",
+      "split": "d1_dev_extra",
+      "media_kind": "screenshot",
+      "original_id": "AE_11/subtask_0/screenshot_end",
+      "source_group_id": "videogui:AE_11",
+      "task_id": "AE_11",
+      "source_video_url": null,
+      "relative_path": "data/datasets/videogui/mid_plan/d1_dev_extra/AE_11/subtask_0_screenshot_end.jpg",
+      "byte_size": 295437,
+      "sha256": "61e409a9508f38fca35d0e8079ea23d3c179ca5376009f7d05dbcb2cb90ef737",
+      "question_count": 1,
+      "task_categories": [
+        "gui_mid_plan:AE"
+      ],
+      "role_summary": "VideoGUI AE AE_11 subtask 0 screenshot_end (2560x1600)",
+      "image_dimensions": [
+        2560,
+        1600
+      ],
+      "authorization": {
+        "benchmark": "videogui",
+        "source_repo_url": "https://github.com/showlab/VideoGUI",
+        "license_name": "academic_benchmark_unspecified_osi_license",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "NeurIPS 2024 D&B public academic benchmark (showlab/VideoGUI & official HuggingFace org VideoGUI/*). GitHub repo has no OSI LICENSE file; restricted to local non-commercial evaluation and stored under gitignored data/."
+      }
+    },
+    {
+      "artifact_id": "vg_mid_ae_11_s1_start",
+      "benchmark": "videogui",
+      "split": "d1_dev_extra",
+      "media_kind": "screenshot",
+      "original_id": "AE_11/subtask_1/screenshot_start",
+      "source_group_id": "videogui:AE_11",
+      "task_id": "AE_11",
+      "source_video_url": null,
+      "relative_path": "data/datasets/videogui/mid_plan/d1_dev_extra/AE_11/subtask_1_screenshot_start.jpg",
+      "byte_size": 314819,
+      "sha256": "1876ccb93592885b74ad561bf3dee82f236a2cdadfe70c6fc98d1d664a8cfe9f",
+      "question_count": 1,
+      "task_categories": [
+        "gui_mid_plan:AE"
+      ],
+      "role_summary": "VideoGUI AE AE_11 subtask 1 screenshot_start (2560x1600)",
+      "image_dimensions": [
+        2560,
+        1600
+      ],
+      "authorization": {
+        "benchmark": "videogui",
+        "source_repo_url": "https://github.com/showlab/VideoGUI",
+        "license_name": "academic_benchmark_unspecified_osi_license",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "NeurIPS 2024 D&B public academic benchmark (showlab/VideoGUI & official HuggingFace org VideoGUI/*). GitHub repo has no OSI LICENSE file; restricted to local non-commercial evaluation and stored under gitignored data/."
+      }
+    },
+    {
+      "artifact_id": "vg_mid_ae_11_s1_end",
+      "benchmark": "videogui",
+      "split": "d1_dev_extra",
+      "media_kind": "screenshot",
+      "original_id": "AE_11/subtask_1/screenshot_end",
+      "source_group_id": "videogui:AE_11",
+      "task_id": "AE_11",
+      "source_video_url": null,
+      "relative_path": "data/datasets/videogui/mid_plan/d1_dev_extra/AE_11/subtask_1_screenshot_end.jpg",
+      "byte_size": 357410,
+      "sha256": "b66ac6d0665bd3fb2fe9b444614f82abcc72d2dc14ad8e44917d4685b10c3919",
+      "question_count": 1,
+      "task_categories": [
+        "gui_mid_plan:AE"
+      ],
+      "role_summary": "VideoGUI AE AE_11 subtask 1 screenshot_end (2560x1600)",
+      "image_dimensions": [
+        2560,
+        1600
+      ],
+      "authorization": {
+        "benchmark": "videogui",
+        "source_repo_url": "https://github.com/showlab/VideoGUI",
+        "license_name": "academic_benchmark_unspecified_osi_license",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "NeurIPS 2024 D&B public academic benchmark (showlab/VideoGUI & official HuggingFace org VideoGUI/*). GitHub repo has no OSI LICENSE file; restricted to local non-commercial evaluation and stored under gitignored data/."
+      }
+    },
+    {
+      "artifact_id": "vg_mid_ae_10_s0_start",
+      "benchmark": "videogui",
+      "split": "m0_dev",
+      "media_kind": "screenshot",
+      "original_id": "AE_10/subtask_0/screenshot_start",
+      "source_group_id": "videogui:AE_10",
+      "task_id": "AE_10",
+      "source_video_url": null,
+      "relative_path": "data/datasets/videogui/mid_plan/m0_dev/AE_10/subtask_0_screenshot_start.jpg",
+      "byte_size": 300070,
+      "sha256": "6d8296e1728f1d52c492732d43dc1c874b1b4be688937b4292141358a72f5a6f",
+      "question_count": 1,
+      "task_categories": [
+        "gui_mid_plan:AE"
+      ],
+      "role_summary": "VideoGUI AE AE_10 subtask 0 screenshot_start (2560x1600)",
+      "image_dimensions": [
+        2560,
+        1600
+      ],
+      "authorization": {
+        "benchmark": "videogui",
+        "source_repo_url": "https://github.com/showlab/VideoGUI",
+        "license_name": "academic_benchmark_unspecified_osi_license",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "NeurIPS 2024 D&B public academic benchmark (showlab/VideoGUI & official HuggingFace org VideoGUI/*). GitHub repo has no OSI LICENSE file; restricted to local non-commercial evaluation and stored under gitignored data/."
+      }
+    },
+    {
+      "artifact_id": "vg_mid_ae_10_s0_end",
+      "benchmark": "videogui",
+      "split": "m0_dev",
+      "media_kind": "screenshot",
+      "original_id": "AE_10/subtask_0/screenshot_end",
+      "source_group_id": "videogui:AE_10",
+      "task_id": "AE_10",
+      "source_video_url": null,
+      "relative_path": "data/datasets/videogui/mid_plan/m0_dev/AE_10/subtask_0_screenshot_end.jpg",
+      "byte_size": 311907,
+      "sha256": "33ee9264b314a915f8c84c6fecf03084c83e29cb9f8b422bcaa9df5e89842855",
+      "question_count": 1,
+      "task_categories": [
+        "gui_mid_plan:AE"
+      ],
+      "role_summary": "VideoGUI AE AE_10 subtask 0 screenshot_end (2560x1600)",
+      "image_dimensions": [
+        2560,
+        1600
+      ],
+      "authorization": {
+        "benchmark": "videogui",
+        "source_repo_url": "https://github.com/showlab/VideoGUI",
+        "license_name": "academic_benchmark_unspecified_osi_license",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "NeurIPS 2024 D&B public academic benchmark (showlab/VideoGUI & official HuggingFace org VideoGUI/*). GitHub repo has no OSI LICENSE file; restricted to local non-commercial evaluation and stored under gitignored data/."
+      }
+    },
+    {
+      "artifact_id": "vg_mid_ae_10_s1_start",
+      "benchmark": "videogui",
+      "split": "m0_dev",
+      "media_kind": "screenshot",
+      "original_id": "AE_10/subtask_1/screenshot_start",
+      "source_group_id": "videogui:AE_10",
+      "task_id": "AE_10",
+      "source_video_url": null,
+      "relative_path": "data/datasets/videogui/mid_plan/m0_dev/AE_10/subtask_1_screenshot_start.jpg",
+      "byte_size": 304114,
+      "sha256": "3172c8503e9cea21f41c92056e6d815dc1eeb8b7c11153397f56f990d59a8c25",
+      "question_count": 1,
+      "task_categories": [
+        "gui_mid_plan:AE"
+      ],
+      "role_summary": "VideoGUI AE AE_10 subtask 1 screenshot_start (2560x1600)",
+      "image_dimensions": [
+        2560,
+        1600
+      ],
+      "authorization": {
+        "benchmark": "videogui",
+        "source_repo_url": "https://github.com/showlab/VideoGUI",
+        "license_name": "academic_benchmark_unspecified_osi_license",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "NeurIPS 2024 D&B public academic benchmark (showlab/VideoGUI & official HuggingFace org VideoGUI/*). GitHub repo has no OSI LICENSE file; restricted to local non-commercial evaluation and stored under gitignored data/."
+      }
+    },
+    {
+      "artifact_id": "vg_mid_ae_10_s1_end",
+      "benchmark": "videogui",
+      "split": "m0_dev",
+      "media_kind": "screenshot",
+      "original_id": "AE_10/subtask_1/screenshot_end",
+      "source_group_id": "videogui:AE_10",
+      "task_id": "AE_10",
+      "source_video_url": null,
+      "relative_path": "data/datasets/videogui/mid_plan/m0_dev/AE_10/subtask_1_screenshot_end.jpg",
+      "byte_size": 286092,
+      "sha256": "86953f2f02c7c53d55cfee9e7a13778a92866a80408264eb106f077ce87ca7de",
+      "question_count": 1,
+      "task_categories": [
+        "gui_mid_plan:AE"
+      ],
+      "role_summary": "VideoGUI AE AE_10 subtask 1 screenshot_end (2560x1600)",
+      "image_dimensions": [
+        2560,
+        1600
+      ],
+      "authorization": {
+        "benchmark": "videogui",
+        "source_repo_url": "https://github.com/showlab/VideoGUI",
+        "license_name": "academic_benchmark_unspecified_osi_license",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "NeurIPS 2024 D&B public academic benchmark (showlab/VideoGUI & official HuggingFace org VideoGUI/*). GitHub repo has no OSI LICENSE file; restricted to local non-commercial evaluation and stored under gitignored data/."
+      }
+    },
+    {
+      "artifact_id": "vg_mid_pr_18_s0_start",
+      "benchmark": "videogui",
+      "split": "m6_holdout",
+      "media_kind": "screenshot",
+      "original_id": "PR_18/subtask_0/screenshot_start",
+      "source_group_id": "videogui:PR_18",
+      "task_id": "PR_18",
+      "source_video_url": null,
+      "relative_path": "data/datasets/videogui/mid_plan/m6_holdout/PR_18/subtask_0_screenshot_start.jpg",
+      "byte_size": 249607,
+      "sha256": "5922a8d29e864a7c987f8d1a540ac764ec0c1b057303622355b76c0b9f20805a",
+      "question_count": 1,
+      "task_categories": [
+        "gui_mid_plan:PR"
+      ],
+      "role_summary": "VideoGUI PR PR_18 subtask 0 screenshot_start (2560x1600)",
+      "image_dimensions": [
+        2560,
+        1600
+      ],
+      "authorization": {
+        "benchmark": "videogui",
+        "source_repo_url": "https://github.com/showlab/VideoGUI",
+        "license_name": "academic_benchmark_unspecified_osi_license",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "NeurIPS 2024 D&B public academic benchmark (showlab/VideoGUI & official HuggingFace org VideoGUI/*). GitHub repo has no OSI LICENSE file; restricted to local non-commercial evaluation and stored under gitignored data/."
+      }
+    },
+    {
+      "artifact_id": "vg_mid_pr_18_s0_end",
+      "benchmark": "videogui",
+      "split": "m6_holdout",
+      "media_kind": "screenshot",
+      "original_id": "PR_18/subtask_0/screenshot_end",
+      "source_group_id": "videogui:PR_18",
+      "task_id": "PR_18",
+      "source_video_url": null,
+      "relative_path": "data/datasets/videogui/mid_plan/m6_holdout/PR_18/subtask_0_screenshot_end.jpg",
+      "byte_size": 268425,
+      "sha256": "6c1a6f8b9d36c112d8d969d086d51ccc17a7c7d5135fa16e7b59c10e3f070c21",
+      "question_count": 1,
+      "task_categories": [
+        "gui_mid_plan:PR"
+      ],
+      "role_summary": "VideoGUI PR PR_18 subtask 0 screenshot_end (2560x1600)",
+      "image_dimensions": [
+        2560,
+        1600
+      ],
+      "authorization": {
+        "benchmark": "videogui",
+        "source_repo_url": "https://github.com/showlab/VideoGUI",
+        "license_name": "academic_benchmark_unspecified_osi_license",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "NeurIPS 2024 D&B public academic benchmark (showlab/VideoGUI & official HuggingFace org VideoGUI/*). GitHub repo has no OSI LICENSE file; restricted to local non-commercial evaluation and stored under gitignored data/."
+      }
+    },
+    {
+      "artifact_id": "vg_mid_pr_18_s1_start",
+      "benchmark": "videogui",
+      "split": "m6_holdout",
+      "media_kind": "screenshot",
+      "original_id": "PR_18/subtask_1/screenshot_start",
+      "source_group_id": "videogui:PR_18",
+      "task_id": "PR_18",
+      "source_video_url": null,
+      "relative_path": "data/datasets/videogui/mid_plan/m6_holdout/PR_18/subtask_1_screenshot_start.jpg",
+      "byte_size": 257842,
+      "sha256": "dfcf749b6f0de5c02bfb4d3cddb085a4b546e7853e53dab0517ceb0d64ea823e",
+      "question_count": 1,
+      "task_categories": [
+        "gui_mid_plan:PR"
+      ],
+      "role_summary": "VideoGUI PR PR_18 subtask 1 screenshot_start (2560x1600)",
+      "image_dimensions": [
+        2560,
+        1600
+      ],
+      "authorization": {
+        "benchmark": "videogui",
+        "source_repo_url": "https://github.com/showlab/VideoGUI",
+        "license_name": "academic_benchmark_unspecified_osi_license",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "NeurIPS 2024 D&B public academic benchmark (showlab/VideoGUI & official HuggingFace org VideoGUI/*). GitHub repo has no OSI LICENSE file; restricted to local non-commercial evaluation and stored under gitignored data/."
+      }
+    },
+    {
+      "artifact_id": "vg_mid_pr_18_s1_end",
+      "benchmark": "videogui",
+      "split": "m6_holdout",
+      "media_kind": "screenshot",
+      "original_id": "PR_18/subtask_1/screenshot_end",
+      "source_group_id": "videogui:PR_18",
+      "task_id": "PR_18",
+      "source_video_url": null,
+      "relative_path": "data/datasets/videogui/mid_plan/m6_holdout/PR_18/subtask_1_screenshot_end.jpg",
+      "byte_size": 272619,
+      "sha256": "81018664f2cd62e5f94bfd255c585eadefe17ff29b1d28550ff7cbfbd6709510",
+      "question_count": 1,
+      "task_categories": [
+        "gui_mid_plan:PR"
+      ],
+      "role_summary": "VideoGUI PR PR_18 subtask 1 screenshot_end (2560x1600)",
+      "image_dimensions": [
+        2560,
+        1600
+      ],
+      "authorization": {
+        "benchmark": "videogui",
+        "source_repo_url": "https://github.com/showlab/VideoGUI",
+        "license_name": "academic_benchmark_unspecified_osi_license",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "NeurIPS 2024 D&B public academic benchmark (showlab/VideoGUI & official HuggingFace org VideoGUI/*). GitHub repo has no OSI LICENSE file; restricted to local non-commercial evaluation and stored under gitignored data/."
+      }
+    },
+    {
+      "artifact_id": "vg_mid_pr_10_s0_start",
+      "benchmark": "videogui",
+      "split": "m0_dev",
+      "media_kind": "screenshot",
+      "original_id": "PR_10/subtask_0/screenshot_start",
+      "source_group_id": "videogui:PR_10",
+      "task_id": "PR_10",
+      "source_video_url": null,
+      "relative_path": "data/datasets/videogui/mid_plan/m0_dev/PR_10/subtask_0_screenshot_start.jpg",
+      "byte_size": 168362,
+      "sha256": "1b0ad906f38e5496f9cd04069a116617409f4da63e6f2a57a6ca419a14e87a18",
+      "question_count": 1,
+      "task_categories": [
+        "gui_mid_plan:PR"
+      ],
+      "role_summary": "VideoGUI PR PR_10 subtask 0 screenshot_start (1920x1080)",
+      "image_dimensions": [
+        1920,
+        1080
+      ],
+      "authorization": {
+        "benchmark": "videogui",
+        "source_repo_url": "https://github.com/showlab/VideoGUI",
+        "license_name": "academic_benchmark_unspecified_osi_license",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "NeurIPS 2024 D&B public academic benchmark (showlab/VideoGUI & official HuggingFace org VideoGUI/*). GitHub repo has no OSI LICENSE file; restricted to local non-commercial evaluation and stored under gitignored data/."
+      }
+    },
+    {
+      "artifact_id": "vg_mid_pr_10_s0_end",
+      "benchmark": "videogui",
+      "split": "m0_dev",
+      "media_kind": "screenshot",
+      "original_id": "PR_10/subtask_0/screenshot_end",
+      "source_group_id": "videogui:PR_10",
+      "task_id": "PR_10",
+      "source_video_url": null,
+      "relative_path": "data/datasets/videogui/mid_plan/m0_dev/PR_10/subtask_0_screenshot_end.jpg",
+      "byte_size": 168362,
+      "sha256": "1b0ad906f38e5496f9cd04069a116617409f4da63e6f2a57a6ca419a14e87a18",
+      "question_count": 1,
+      "task_categories": [
+        "gui_mid_plan:PR"
+      ],
+      "role_summary": "VideoGUI PR PR_10 subtask 0 screenshot_end (1920x1080)",
+      "image_dimensions": [
+        1920,
+        1080
+      ],
+      "authorization": {
+        "benchmark": "videogui",
+        "source_repo_url": "https://github.com/showlab/VideoGUI",
+        "license_name": "academic_benchmark_unspecified_osi_license",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "NeurIPS 2024 D&B public academic benchmark (showlab/VideoGUI & official HuggingFace org VideoGUI/*). GitHub repo has no OSI LICENSE file; restricted to local non-commercial evaluation and stored under gitignored data/."
+      }
+    },
+    {
+      "artifact_id": "vg_mid_pr_10_s1_start",
+      "benchmark": "videogui",
+      "split": "m0_dev",
+      "media_kind": "screenshot",
+      "original_id": "PR_10/subtask_1/screenshot_start",
+      "source_group_id": "videogui:PR_10",
+      "task_id": "PR_10",
+      "source_video_url": null,
+      "relative_path": "data/datasets/videogui/mid_plan/m0_dev/PR_10/subtask_1_screenshot_start.jpg",
+      "byte_size": 173242,
+      "sha256": "f14f83a772352e3fa2c32741d29f56429b084326e866fb3fe26c6d2755f398c8",
+      "question_count": 1,
+      "task_categories": [
+        "gui_mid_plan:PR"
+      ],
+      "role_summary": "VideoGUI PR PR_10 subtask 1 screenshot_start (1920x1080)",
+      "image_dimensions": [
+        1920,
+        1080
+      ],
+      "authorization": {
+        "benchmark": "videogui",
+        "source_repo_url": "https://github.com/showlab/VideoGUI",
+        "license_name": "academic_benchmark_unspecified_osi_license",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "NeurIPS 2024 D&B public academic benchmark (showlab/VideoGUI & official HuggingFace org VideoGUI/*). GitHub repo has no OSI LICENSE file; restricted to local non-commercial evaluation and stored under gitignored data/."
+      }
+    },
+    {
+      "artifact_id": "vg_mid_pr_10_s1_end",
+      "benchmark": "videogui",
+      "split": "m0_dev",
+      "media_kind": "screenshot",
+      "original_id": "PR_10/subtask_1/screenshot_end",
+      "source_group_id": "videogui:PR_10",
+      "task_id": "PR_10",
+      "source_video_url": null,
+      "relative_path": "data/datasets/videogui/mid_plan/m0_dev/PR_10/subtask_1_screenshot_end.jpg",
+      "byte_size": 175646,
+      "sha256": "33d45a925a28a0c6c5eedfa7c029b76b72130c515040ff2bc7ce1637f2e3d68c",
+      "question_count": 1,
+      "task_categories": [
+        "gui_mid_plan:PR"
+      ],
+      "role_summary": "VideoGUI PR PR_10 subtask 1 screenshot_end (1920x1080)",
+      "image_dimensions": [
+        1920,
+        1080
+      ],
+      "authorization": {
+        "benchmark": "videogui",
+        "source_repo_url": "https://github.com/showlab/VideoGUI",
+        "license_name": "academic_benchmark_unspecified_osi_license",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "NeurIPS 2024 D&B public academic benchmark (showlab/VideoGUI & official HuggingFace org VideoGUI/*). GitHub repo has no OSI LICENSE file; restricted to local non-commercial evaluation and stored under gitignored data/."
+      }
+    },
+    {
+      "artifact_id": "vg_mid_ppt_10_s0_start",
+      "benchmark": "videogui",
+      "split": "m0_dev",
+      "media_kind": "screenshot",
+      "original_id": "PPT_10/subtask_0/screenshot_start",
+      "source_group_id": "videogui:PPT_10",
+      "task_id": "PPT_10",
+      "source_video_url": null,
+      "relative_path": "data/datasets/videogui/mid_plan/m0_dev/PPT_10/subtask_0_screenshot_start.jpg",
+      "byte_size": 229849,
+      "sha256": "1ce6570bc890204a5205522f96d585637d0478a64d07d8fa3c35f11166d5cfa0",
+      "question_count": 1,
+      "task_categories": [
+        "gui_mid_plan:PPT"
+      ],
+      "role_summary": "VideoGUI PPT PPT_10 subtask 0 screenshot_start (1920x1080)",
+      "image_dimensions": [
+        1920,
+        1080
+      ],
+      "authorization": {
+        "benchmark": "videogui",
+        "source_repo_url": "https://github.com/showlab/VideoGUI",
+        "license_name": "academic_benchmark_unspecified_osi_license",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "NeurIPS 2024 D&B public academic benchmark (showlab/VideoGUI & official HuggingFace org VideoGUI/*). GitHub repo has no OSI LICENSE file; restricted to local non-commercial evaluation and stored under gitignored data/."
+      }
+    },
+    {
+      "artifact_id": "vg_mid_ppt_10_s0_end",
+      "benchmark": "videogui",
+      "split": "m0_dev",
+      "media_kind": "screenshot",
+      "original_id": "PPT_10/subtask_0/screenshot_end",
+      "source_group_id": "videogui:PPT_10",
+      "task_id": "PPT_10",
+      "source_video_url": null,
+      "relative_path": "data/datasets/videogui/mid_plan/m0_dev/PPT_10/subtask_0_screenshot_end.jpg",
+      "byte_size": 220994,
+      "sha256": "67a364135b53f757e1a02286bb15f0141ec25700e95f040dfa1d308f6a8b3255",
+      "question_count": 1,
+      "task_categories": [
+        "gui_mid_plan:PPT"
+      ],
+      "role_summary": "VideoGUI PPT PPT_10 subtask 0 screenshot_end (1920x1080)",
+      "image_dimensions": [
+        1920,
+        1080
+      ],
+      "authorization": {
+        "benchmark": "videogui",
+        "source_repo_url": "https://github.com/showlab/VideoGUI",
+        "license_name": "academic_benchmark_unspecified_osi_license",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "NeurIPS 2024 D&B public academic benchmark (showlab/VideoGUI & official HuggingFace org VideoGUI/*). GitHub repo has no OSI LICENSE file; restricted to local non-commercial evaluation and stored under gitignored data/."
+      }
+    },
+    {
+      "artifact_id": "vg_mid_ppt_10_s1_start",
+      "benchmark": "videogui",
+      "split": "m0_dev",
+      "media_kind": "screenshot",
+      "original_id": "PPT_10/subtask_1/screenshot_start",
+      "source_group_id": "videogui:PPT_10",
+      "task_id": "PPT_10",
+      "source_video_url": null,
+      "relative_path": "data/datasets/videogui/mid_plan/m0_dev/PPT_10/subtask_1_screenshot_start.jpg",
+      "byte_size": 222711,
+      "sha256": "7430a31fc2cf5e349ca5751eb1764f5ad9b8d1b7924d099629ab532b99e61e26",
+      "question_count": 1,
+      "task_categories": [
+        "gui_mid_plan:PPT"
+      ],
+      "role_summary": "VideoGUI PPT PPT_10 subtask 1 screenshot_start (1920x1080)",
+      "image_dimensions": [
+        1920,
+        1080
+      ],
+      "authorization": {
+        "benchmark": "videogui",
+        "source_repo_url": "https://github.com/showlab/VideoGUI",
+        "license_name": "academic_benchmark_unspecified_osi_license",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "NeurIPS 2024 D&B public academic benchmark (showlab/VideoGUI & official HuggingFace org VideoGUI/*). GitHub repo has no OSI LICENSE file; restricted to local non-commercial evaluation and stored under gitignored data/."
+      }
+    },
+    {
+      "artifact_id": "vg_mid_ppt_10_s1_end",
+      "benchmark": "videogui",
+      "split": "m0_dev",
+      "media_kind": "screenshot",
+      "original_id": "PPT_10/subtask_1/screenshot_end",
+      "source_group_id": "videogui:PPT_10",
+      "task_id": "PPT_10",
+      "source_video_url": null,
+      "relative_path": "data/datasets/videogui/mid_plan/m0_dev/PPT_10/subtask_1_screenshot_end.jpg",
+      "byte_size": 250533,
+      "sha256": "08478baa06de37f529cfd8df534139a825f9dacaa7d70925dea81a1b31c7487f",
+      "question_count": 1,
+      "task_categories": [
+        "gui_mid_plan:PPT"
+      ],
+      "role_summary": "VideoGUI PPT PPT_10 subtask 1 screenshot_end (1920x1080)",
+      "image_dimensions": [
+        1920,
+        1080
+      ],
+      "authorization": {
+        "benchmark": "videogui",
+        "source_repo_url": "https://github.com/showlab/VideoGUI",
+        "license_name": "academic_benchmark_unspecified_osi_license",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "NeurIPS 2024 D&B public academic benchmark (showlab/VideoGUI & official HuggingFace org VideoGUI/*). GitHub repo has no OSI LICENSE file; restricted to local non-commercial evaluation and stored under gitignored data/."
+      }
+    },
+    {
+      "artifact_id": "vg_mid_cc_11_s0_start",
+      "benchmark": "videogui",
+      "split": "d1_dev_extra",
+      "media_kind": "screenshot",
+      "original_id": "CC_11/subtask_0/screenshot_start",
+      "source_group_id": "videogui:CC_11",
+      "task_id": "CC_11",
+      "source_video_url": null,
+      "relative_path": "data/datasets/videogui/mid_plan/d1_dev_extra/CC_11/subtask_0_screenshot_start.jpg",
+      "byte_size": 206110,
+      "sha256": "7d73b7912c393db6135de1d094944c56eb75bd7bb229b659f67c4ecaaf7132ed",
+      "question_count": 1,
+      "task_categories": [
+        "gui_mid_plan:CapCut"
+      ],
+      "role_summary": "VideoGUI CapCut CC_11 subtask 0 screenshot_start (2560x1600)",
+      "image_dimensions": [
+        2560,
+        1600
+      ],
+      "authorization": {
+        "benchmark": "videogui",
+        "source_repo_url": "https://github.com/showlab/VideoGUI",
+        "license_name": "academic_benchmark_unspecified_osi_license",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "NeurIPS 2024 D&B public academic benchmark (showlab/VideoGUI & official HuggingFace org VideoGUI/*). GitHub repo has no OSI LICENSE file; restricted to local non-commercial evaluation and stored under gitignored data/."
+      }
+    },
+    {
+      "artifact_id": "vg_mid_cc_11_s0_end",
+      "benchmark": "videogui",
+      "split": "d1_dev_extra",
+      "media_kind": "screenshot",
+      "original_id": "CC_11/subtask_0/screenshot_end",
+      "source_group_id": "videogui:CC_11",
+      "task_id": "CC_11",
+      "source_video_url": null,
+      "relative_path": "data/datasets/videogui/mid_plan/d1_dev_extra/CC_11/subtask_0_screenshot_end.jpg",
+      "byte_size": 211165,
+      "sha256": "f2b9a8001c7c16050f99246b1ee1257ec378cbd4f3834e42138faebe1d9392ef",
+      "question_count": 1,
+      "task_categories": [
+        "gui_mid_plan:CapCut"
+      ],
+      "role_summary": "VideoGUI CapCut CC_11 subtask 0 screenshot_end (2560x1600)",
+      "image_dimensions": [
+        2560,
+        1600
+      ],
+      "authorization": {
+        "benchmark": "videogui",
+        "source_repo_url": "https://github.com/showlab/VideoGUI",
+        "license_name": "academic_benchmark_unspecified_osi_license",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "NeurIPS 2024 D&B public academic benchmark (showlab/VideoGUI & official HuggingFace org VideoGUI/*). GitHub repo has no OSI LICENSE file; restricted to local non-commercial evaluation and stored under gitignored data/."
+      }
+    },
+    {
+      "artifact_id": "vg_mid_cc_11_s1_start",
+      "benchmark": "videogui",
+      "split": "d1_dev_extra",
+      "media_kind": "screenshot",
+      "original_id": "CC_11/subtask_1/screenshot_start",
+      "source_group_id": "videogui:CC_11",
+      "task_id": "CC_11",
+      "source_video_url": null,
+      "relative_path": "data/datasets/videogui/mid_plan/d1_dev_extra/CC_11/subtask_1_screenshot_start.jpg",
+      "byte_size": 211533,
+      "sha256": "7c43cc31929eea6204ed8ec23b5fe6de0ed1133124d9b8ad64cf5109166cbc2f",
+      "question_count": 1,
+      "task_categories": [
+        "gui_mid_plan:CapCut"
+      ],
+      "role_summary": "VideoGUI CapCut CC_11 subtask 1 screenshot_start (2560x1600)",
+      "image_dimensions": [
+        2560,
+        1600
+      ],
+      "authorization": {
+        "benchmark": "videogui",
+        "source_repo_url": "https://github.com/showlab/VideoGUI",
+        "license_name": "academic_benchmark_unspecified_osi_license",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "NeurIPS 2024 D&B public academic benchmark (showlab/VideoGUI & official HuggingFace org VideoGUI/*). GitHub repo has no OSI LICENSE file; restricted to local non-commercial evaluation and stored under gitignored data/."
+      }
+    },
+    {
+      "artifact_id": "vg_mid_cc_11_s1_end",
+      "benchmark": "videogui",
+      "split": "d1_dev_extra",
+      "media_kind": "screenshot",
+      "original_id": "CC_11/subtask_1/screenshot_end",
+      "source_group_id": "videogui:CC_11",
+      "task_id": "CC_11",
+      "source_video_url": null,
+      "relative_path": "data/datasets/videogui/mid_plan/d1_dev_extra/CC_11/subtask_1_screenshot_end.jpg",
+      "byte_size": 215934,
+      "sha256": "07807c6002b9d58aa4d761675450b8706b34a458f45b683cc607f25333abb5f9",
+      "question_count": 1,
+      "task_categories": [
+        "gui_mid_plan:CapCut"
+      ],
+      "role_summary": "VideoGUI CapCut CC_11 subtask 1 screenshot_end (2560x1600)",
+      "image_dimensions": [
+        2560,
+        1600
+      ],
+      "authorization": {
+        "benchmark": "videogui",
+        "source_repo_url": "https://github.com/showlab/VideoGUI",
+        "license_name": "academic_benchmark_unspecified_osi_license",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "NeurIPS 2024 D&B public academic benchmark (showlab/VideoGUI & official HuggingFace org VideoGUI/*). GitHub repo has no OSI LICENSE file; restricted to local non-commercial evaluation and stored under gitignored data/."
+      }
+    },
+    {
+      "artifact_id": "vg_mid_cc_12_s0_start",
+      "benchmark": "videogui",
+      "split": "m6_holdout",
+      "media_kind": "screenshot",
+      "original_id": "CC_12/subtask_0/screenshot_start",
+      "source_group_id": "videogui:CC_12",
+      "task_id": "CC_12",
+      "source_video_url": null,
+      "relative_path": "data/datasets/videogui/mid_plan/m6_holdout/CC_12/subtask_0_screenshot_start.jpg",
+      "byte_size": 209719,
+      "sha256": "1ea21043995e72d7043893e115358de0df05bb8174781b0c507039ac4b0deade",
+      "question_count": 1,
+      "task_categories": [
+        "gui_mid_plan:CapCut"
+      ],
+      "role_summary": "VideoGUI CapCut CC_12 subtask 0 screenshot_start (2560x1600)",
+      "image_dimensions": [
+        2560,
+        1600
+      ],
+      "authorization": {
+        "benchmark": "videogui",
+        "source_repo_url": "https://github.com/showlab/VideoGUI",
+        "license_name": "academic_benchmark_unspecified_osi_license",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "NeurIPS 2024 D&B public academic benchmark (showlab/VideoGUI & official HuggingFace org VideoGUI/*). GitHub repo has no OSI LICENSE file; restricted to local non-commercial evaluation and stored under gitignored data/."
+      }
+    },
+    {
+      "artifact_id": "vg_mid_cc_12_s0_end",
+      "benchmark": "videogui",
+      "split": "m6_holdout",
+      "media_kind": "screenshot",
+      "original_id": "CC_12/subtask_0/screenshot_end",
+      "source_group_id": "videogui:CC_12",
+      "task_id": "CC_12",
+      "source_video_url": null,
+      "relative_path": "data/datasets/videogui/mid_plan/m6_holdout/CC_12/subtask_0_screenshot_end.jpg",
+      "byte_size": 220641,
+      "sha256": "1103ebd00e22e8a14fb6ad0c42a34ec9f41ee346a351d3a5e521256bcde97b43",
+      "question_count": 1,
+      "task_categories": [
+        "gui_mid_plan:CapCut"
+      ],
+      "role_summary": "VideoGUI CapCut CC_12 subtask 0 screenshot_end (2560x1600)",
+      "image_dimensions": [
+        2560,
+        1600
+      ],
+      "authorization": {
+        "benchmark": "videogui",
+        "source_repo_url": "https://github.com/showlab/VideoGUI",
+        "license_name": "academic_benchmark_unspecified_osi_license",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "NeurIPS 2024 D&B public academic benchmark (showlab/VideoGUI & official HuggingFace org VideoGUI/*). GitHub repo has no OSI LICENSE file; restricted to local non-commercial evaluation and stored under gitignored data/."
+      }
+    },
+    {
+      "artifact_id": "vg_mid_cc_12_s1_start",
+      "benchmark": "videogui",
+      "split": "m6_holdout",
+      "media_kind": "screenshot",
+      "original_id": "CC_12/subtask_1/screenshot_start",
+      "source_group_id": "videogui:CC_12",
+      "task_id": "CC_12",
+      "source_video_url": null,
+      "relative_path": "data/datasets/videogui/mid_plan/m6_holdout/CC_12/subtask_1_screenshot_start.jpg",
+      "byte_size": 219898,
+      "sha256": "027666dbc45a90902b71e5df6de54d9a15c89ad9f80e59e79be75950659179ca",
+      "question_count": 1,
+      "task_categories": [
+        "gui_mid_plan:CapCut"
+      ],
+      "role_summary": "VideoGUI CapCut CC_12 subtask 1 screenshot_start (2560x1600)",
+      "image_dimensions": [
+        2560,
+        1600
+      ],
+      "authorization": {
+        "benchmark": "videogui",
+        "source_repo_url": "https://github.com/showlab/VideoGUI",
+        "license_name": "academic_benchmark_unspecified_osi_license",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "NeurIPS 2024 D&B public academic benchmark (showlab/VideoGUI & official HuggingFace org VideoGUI/*). GitHub repo has no OSI LICENSE file; restricted to local non-commercial evaluation and stored under gitignored data/."
+      }
+    },
+    {
+      "artifact_id": "vg_mid_cc_12_s1_end",
+      "benchmark": "videogui",
+      "split": "m6_holdout",
+      "media_kind": "screenshot",
+      "original_id": "CC_12/subtask_1/screenshot_end",
+      "source_group_id": "videogui:CC_12",
+      "task_id": "CC_12",
+      "source_video_url": null,
+      "relative_path": "data/datasets/videogui/mid_plan/m6_holdout/CC_12/subtask_1_screenshot_end.jpg",
+      "byte_size": 228426,
+      "sha256": "b4577826698f9d5742ba789fe60f1fd569ac5780d12d8f9983c8ba69c125f847",
+      "question_count": 1,
+      "task_categories": [
+        "gui_mid_plan:CapCut"
+      ],
+      "role_summary": "VideoGUI CapCut CC_12 subtask 1 screenshot_end (2560x1600)",
+      "image_dimensions": [
+        2560,
+        1600
+      ],
+      "authorization": {
+        "benchmark": "videogui",
+        "source_repo_url": "https://github.com/showlab/VideoGUI",
+        "license_name": "academic_benchmark_unspecified_osi_license",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "NeurIPS 2024 D&B public academic benchmark (showlab/VideoGUI & official HuggingFace org VideoGUI/*). GitHub repo has no OSI LICENSE file; restricted to local non-commercial evaluation and stored under gitignored data/."
+      }
+    },
+    {
+      "artifact_id": "vg_mid_dv_10_s0_start",
+      "benchmark": "videogui",
+      "split": "m0_dev",
+      "media_kind": "screenshot",
+      "original_id": "DV_10/subtask_0/screenshot_start",
+      "source_group_id": "videogui:DV_10",
+      "task_id": "DV_10",
+      "source_video_url": null,
+      "relative_path": "data/datasets/videogui/mid_plan/m0_dev/DV_10/subtask_0_screenshot_start.jpg",
+      "byte_size": 237281,
+      "sha256": "4d596006edaf5d02966e927d71c9eb7f7eb79568f7d10ff8e4a08f83d8fb4fa0",
+      "question_count": 1,
+      "task_categories": [
+        "gui_mid_plan:DaVinci"
+      ],
+      "role_summary": "VideoGUI DaVinci DV_10 subtask 0 screenshot_start (2560x1600)",
+      "image_dimensions": [
+        2560,
+        1600
+      ],
+      "authorization": {
+        "benchmark": "videogui",
+        "source_repo_url": "https://github.com/showlab/VideoGUI",
+        "license_name": "academic_benchmark_unspecified_osi_license",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "NeurIPS 2024 D&B public academic benchmark (showlab/VideoGUI & official HuggingFace org VideoGUI/*). GitHub repo has no OSI LICENSE file; restricted to local non-commercial evaluation and stored under gitignored data/."
+      }
+    },
+    {
+      "artifact_id": "vg_mid_dv_10_s0_end",
+      "benchmark": "videogui",
+      "split": "m0_dev",
+      "media_kind": "screenshot",
+      "original_id": "DV_10/subtask_0/screenshot_end",
+      "source_group_id": "videogui:DV_10",
+      "task_id": "DV_10",
+      "source_video_url": null,
+      "relative_path": "data/datasets/videogui/mid_plan/m0_dev/DV_10/subtask_0_screenshot_end.jpg",
+      "byte_size": 236324,
+      "sha256": "1916cd82a68a8b7feb854d598c81e0551e3db7954842c218c79c773e7ad09f93",
+      "question_count": 1,
+      "task_categories": [
+        "gui_mid_plan:DaVinci"
+      ],
+      "role_summary": "VideoGUI DaVinci DV_10 subtask 0 screenshot_end (2560x1600)",
+      "image_dimensions": [
+        2560,
+        1600
+      ],
+      "authorization": {
+        "benchmark": "videogui",
+        "source_repo_url": "https://github.com/showlab/VideoGUI",
+        "license_name": "academic_benchmark_unspecified_osi_license",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "NeurIPS 2024 D&B public academic benchmark (showlab/VideoGUI & official HuggingFace org VideoGUI/*). GitHub repo has no OSI LICENSE file; restricted to local non-commercial evaluation and stored under gitignored data/."
+      }
+    },
+    {
+      "artifact_id": "vg_mid_dv_10_s1_start",
+      "benchmark": "videogui",
+      "split": "m0_dev",
+      "media_kind": "screenshot",
+      "original_id": "DV_10/subtask_1/screenshot_start",
+      "source_group_id": "videogui:DV_10",
+      "task_id": "DV_10",
+      "source_video_url": null,
+      "relative_path": "data/datasets/videogui/mid_plan/m0_dev/DV_10/subtask_1_screenshot_start.jpg",
+      "byte_size": 246054,
+      "sha256": "d228a5c9cf93cee0f43f9a4af2a0b67cbeca902ad9f3034f0b3718f9e88e31cf",
+      "question_count": 1,
+      "task_categories": [
+        "gui_mid_plan:DaVinci"
+      ],
+      "role_summary": "VideoGUI DaVinci DV_10 subtask 1 screenshot_start (2560x1600)",
+      "image_dimensions": [
+        2560,
+        1600
+      ],
+      "authorization": {
+        "benchmark": "videogui",
+        "source_repo_url": "https://github.com/showlab/VideoGUI",
+        "license_name": "academic_benchmark_unspecified_osi_license",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "NeurIPS 2024 D&B public academic benchmark (showlab/VideoGUI & official HuggingFace org VideoGUI/*). GitHub repo has no OSI LICENSE file; restricted to local non-commercial evaluation and stored under gitignored data/."
+      }
+    },
+    {
+      "artifact_id": "vg_mid_dv_10_s1_end",
+      "benchmark": "videogui",
+      "split": "m0_dev",
+      "media_kind": "screenshot",
+      "original_id": "DV_10/subtask_1/screenshot_end",
+      "source_group_id": "videogui:DV_10",
+      "task_id": "DV_10",
+      "source_video_url": null,
+      "relative_path": "data/datasets/videogui/mid_plan/m0_dev/DV_10/subtask_1_screenshot_end.jpg",
+      "byte_size": 290219,
+      "sha256": "28d376f753123f66c7b68a1660289a86502b45cec7ef772004fefaa87dea06a8",
+      "question_count": 1,
+      "task_categories": [
+        "gui_mid_plan:DaVinci"
+      ],
+      "role_summary": "VideoGUI DaVinci DV_10 subtask 1 screenshot_end (2560x1600)",
+      "image_dimensions": [
+        2560,
+        1600
+      ],
+      "authorization": {
+        "benchmark": "videogui",
+        "source_repo_url": "https://github.com/showlab/VideoGUI",
+        "license_name": "academic_benchmark_unspecified_osi_license",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "NeurIPS 2024 D&B public academic benchmark (showlab/VideoGUI & official HuggingFace org VideoGUI/*). GitHub repo has no OSI LICENSE file; restricted to local non-commercial evaluation and stored under gitignored data/."
+      }
+    },
+    {
+      "artifact_id": "vg_mid_dv_16_s0_start",
+      "benchmark": "videogui",
+      "split": "m6_holdout",
+      "media_kind": "screenshot",
+      "original_id": "DV_16/subtask_0/screenshot_start",
+      "source_group_id": "videogui:DV_16",
+      "task_id": "DV_16",
+      "source_video_url": null,
+      "relative_path": "data/datasets/videogui/mid_plan/m6_holdout/DV_16/subtask_0_screenshot_start.jpg",
+      "byte_size": 222460,
+      "sha256": "978e16c7a188285d15c402977547daa832cf30bf72eaf9a74fe884513ff0f070",
+      "question_count": 1,
+      "task_categories": [
+        "gui_mid_plan:DaVinci"
+      ],
+      "role_summary": "VideoGUI DaVinci DV_16 subtask 0 screenshot_start (2560x1600)",
+      "image_dimensions": [
+        2560,
+        1600
+      ],
+      "authorization": {
+        "benchmark": "videogui",
+        "source_repo_url": "https://github.com/showlab/VideoGUI",
+        "license_name": "academic_benchmark_unspecified_osi_license",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "NeurIPS 2024 D&B public academic benchmark (showlab/VideoGUI & official HuggingFace org VideoGUI/*). GitHub repo has no OSI LICENSE file; restricted to local non-commercial evaluation and stored under gitignored data/."
+      }
+    },
+    {
+      "artifact_id": "vg_mid_dv_16_s0_end",
+      "benchmark": "videogui",
+      "split": "m6_holdout",
+      "media_kind": "screenshot",
+      "original_id": "DV_16/subtask_0/screenshot_end",
+      "source_group_id": "videogui:DV_16",
+      "task_id": "DV_16",
+      "source_video_url": null,
+      "relative_path": "data/datasets/videogui/mid_plan/m6_holdout/DV_16/subtask_0_screenshot_end.jpg",
+      "byte_size": 240660,
+      "sha256": "3e763f321e051b531921b43e68aa9dac79cade463ffc9856c31a26024cd2b6d7",
+      "question_count": 1,
+      "task_categories": [
+        "gui_mid_plan:DaVinci"
+      ],
+      "role_summary": "VideoGUI DaVinci DV_16 subtask 0 screenshot_end (2560x1600)",
+      "image_dimensions": [
+        2560,
+        1600
+      ],
+      "authorization": {
+        "benchmark": "videogui",
+        "source_repo_url": "https://github.com/showlab/VideoGUI",
+        "license_name": "academic_benchmark_unspecified_osi_license",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "NeurIPS 2024 D&B public academic benchmark (showlab/VideoGUI & official HuggingFace org VideoGUI/*). GitHub repo has no OSI LICENSE file; restricted to local non-commercial evaluation and stored under gitignored data/."
+      }
+    },
+    {
+      "artifact_id": "vg_mid_dv_16_s1_start",
+      "benchmark": "videogui",
+      "split": "m6_holdout",
+      "media_kind": "screenshot",
+      "original_id": "DV_16/subtask_1/screenshot_start",
+      "source_group_id": "videogui:DV_16",
+      "task_id": "DV_16",
+      "source_video_url": null,
+      "relative_path": "data/datasets/videogui/mid_plan/m6_holdout/DV_16/subtask_1_screenshot_start.jpg",
+      "byte_size": 256403,
+      "sha256": "acac681ca770fe7199c555b82bc7e5e003fbc2d35e9c4a31c14c4a4913d0ebf9",
+      "question_count": 1,
+      "task_categories": [
+        "gui_mid_plan:DaVinci"
+      ],
+      "role_summary": "VideoGUI DaVinci DV_16 subtask 1 screenshot_start (2560x1600)",
+      "image_dimensions": [
+        2560,
+        1600
+      ],
+      "authorization": {
+        "benchmark": "videogui",
+        "source_repo_url": "https://github.com/showlab/VideoGUI",
+        "license_name": "academic_benchmark_unspecified_osi_license",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "NeurIPS 2024 D&B public academic benchmark (showlab/VideoGUI & official HuggingFace org VideoGUI/*). GitHub repo has no OSI LICENSE file; restricted to local non-commercial evaluation and stored under gitignored data/."
+      }
+    },
+    {
+      "artifact_id": "vg_mid_dv_16_s1_end",
+      "benchmark": "videogui",
+      "split": "m6_holdout",
+      "media_kind": "screenshot",
+      "original_id": "DV_16/subtask_1/screenshot_end",
+      "source_group_id": "videogui:DV_16",
+      "task_id": "DV_16",
+      "source_video_url": null,
+      "relative_path": "data/datasets/videogui/mid_plan/m6_holdout/DV_16/subtask_1_screenshot_end.jpg",
+      "byte_size": 256713,
+      "sha256": "f41639b5c8aafdea91f80624b434c89ee10fbbe7554e4411e24822f1a57692ab",
+      "question_count": 1,
+      "task_categories": [
+        "gui_mid_plan:DaVinci"
+      ],
+      "role_summary": "VideoGUI DaVinci DV_16 subtask 1 screenshot_end (2560x1600)",
+      "image_dimensions": [
+        2560,
+        1600
+      ],
+      "authorization": {
+        "benchmark": "videogui",
+        "source_repo_url": "https://github.com/showlab/VideoGUI",
+        "license_name": "academic_benchmark_unspecified_osi_license",
+        "commercial_use_allowed": false,
+        "redistribution_allowed": false,
+        "usage_scope": "local_non_commercial_research_eval_only",
+        "recorded_at_utc": "2026-11-25T00:00:00+00:00",
+        "notes": "NeurIPS 2024 D&B public academic benchmark (showlab/VideoGUI & official HuggingFace org VideoGUI/*). GitHub repo has no OSI LICENSE file; restricted to local non-commercial evaluation and stored under gitignored data/."
+      }
+    }
+  ],
+  "m0_a1_extracted_samples": [
+    {
+      "sample_id": "m0_a1_vg_sd6_gui",
+      "benchmark": "videogui",
+      "parent_artifact_id": "vg_mid_sd6_s0_start",
+      "probe_purpose": "software_tutorial_high_vs_grid_roi",
+      "app": "StableDiffusion",
+      "recommended_roi_region_id": "r2c1",
+      "frames": [
+        {
+          "frame_id": "sd6_gui_0",
+          "relative_path": "data/datasets/m0_a1_extracted/m0_a1_vg_sd6_gui.png",
+          "width": 2560,
+          "height": 1600,
+          "byte_size": 595894,
+          "sha256": "2ab3c81ead2b5c926b6c3fead30ebcfe2b9cd80dc3a97e88808e90b68c88b175",
+          "timestamp_kind": "static_gui_keyframe"
+        }
+      ]
+    },
+    {
+      "sample_id": "m0_a1_vg_ae_10_gui",
+      "benchmark": "videogui",
+      "parent_artifact_id": "vg_mid_ae_10_s0_start",
+      "probe_purpose": "software_tutorial_high_vs_grid_roi",
+      "app": "AE",
+      "recommended_roi_region_id": "r2c2",
+      "frames": [
+        {
+          "frame_id": "ae_10_gui_0",
+          "relative_path": "data/datasets/m0_a1_extracted/m0_a1_vg_ae_10_gui.png",
+          "width": 2560,
+          "height": 1600,
+          "byte_size": 1531355,
+          "sha256": "efa1dd1ba045c2ffcb5dcb8caaecda1b3a0d8785c2abfe7f3c2eb3a71a56ed90",
+          "timestamp_kind": "static_gui_keyframe"
+        }
+      ]
+    },
+    {
+      "sample_id": "m0_a1_vg_pr_10_gui",
+      "benchmark": "videogui",
+      "parent_artifact_id": "vg_mid_pr_10_s0_start",
+      "probe_purpose": "software_tutorial_high_vs_grid_roi",
+      "app": "PR",
+      "recommended_roi_region_id": "r2c2",
+      "frames": [
+        {
+          "frame_id": "pr_10_gui_0",
+          "relative_path": "data/datasets/m0_a1_extracted/m0_a1_vg_pr_10_gui.png",
+          "width": 1920,
+          "height": 1080,
+          "byte_size": 841676,
+          "sha256": "edf6ddf2c33d3889fcc07271b736fbca2997d3194ec94886bd96838b5a990372",
+          "timestamp_kind": "static_gui_keyframe"
+        }
+      ]
+    },
+    {
+      "sample_id": "m0_a1_vg_ps_10_gui",
+      "benchmark": "videogui",
+      "parent_artifact_id": "vg_mid_ps_10_s0_start",
+      "probe_purpose": "software_tutorial_high_vs_grid_roi",
+      "app": "PS",
+      "recommended_roi_region_id": "r2c2",
+      "frames": [
+        {
+          "frame_id": "ps_10_gui_0",
+          "relative_path": "data/datasets/m0_a1_extracted/m0_a1_vg_ps_10_gui.png",
+          "width": 2560,
+          "height": 1600,
+          "byte_size": 1502090,
+          "sha256": "e8f9dc21864cd5122bef3b5665eba80c16a9b28c22b8081ad5182004cded534b",
+          "timestamp_kind": "static_gui_keyframe"
+        }
+      ]
+    },
+    {
+      "sample_id": "m0_a1_vg_dv_10_gui",
+      "benchmark": "videogui",
+      "parent_artifact_id": "vg_mid_dv_10_s0_start",
+      "probe_purpose": "software_tutorial_high_vs_grid_roi",
+      "app": "DaVinci",
+      "recommended_roi_region_id": "r2c2",
+      "frames": [
+        {
+          "frame_id": "dv_10_gui_0",
+          "relative_path": "data/datasets/m0_a1_extracted/m0_a1_vg_dv_10_gui.png",
+          "width": 2560,
+          "height": 1600,
+          "byte_size": 992938,
+          "sha256": "85cae8675b2ebf2d6b7ce7d9014a7bc54b24c34d2992994ba5968c6d7173ee93",
+          "timestamp_kind": "static_gui_keyframe"
+        }
+      ]
+    },
+    {
+      "sample_id": "m0_a1_ocr_941_dialog",
+      "benchmark": "mme_videoocr",
+      "parent_artifact_id": "ocr_941",
+      "probe_purpose": "software_tutorial_high_vs_grid_roi",
+      "recommended_roi_region_id": "r2c2",
+      "frames": [
+        {
+          "frame_id": "m0_a1_ocr_941_dialog_f0",
+          "relative_path": "data/datasets/m0_a1_extracted/m0_a1_ocr_941_dialog_f0_5000ms.png",
+          "width": 1920,
+          "height": 1080,
+          "timestamp_kind": "ffprobe_actual_pts",
+          "requested_ms": 5000,
+          "actual_pts_ms": 5004,
+          "actual_pts": 96000,
+          "time_base": "1/19184",
+          "origin_pts_ms": 0,
+          "byte_size": 1350271,
+          "sha256": "9236d52a5aeb8d5fbeb3e11c2c7747a96405be479fdf6ed45e0e31d756980bab"
+        },
+        {
+          "frame_id": "m0_a1_ocr_941_dialog_f1",
+          "relative_path": "data/datasets/m0_a1_extracted/m0_a1_ocr_941_dialog_f1_15000ms.png",
+          "width": 1920,
+          "height": 1080,
+          "timestamp_kind": "ffprobe_actual_pts",
+          "requested_ms": 15000,
+          "actual_pts_ms": 15013,
+          "actual_pts": 288000,
+          "time_base": "1/19184",
+          "origin_pts_ms": 0,
+          "byte_size": 878342,
+          "sha256": "2eecdb0551fd559fc64da88cf737c4305744a995b15bdcc164133a86a8822575"
+        },
+        {
+          "frame_id": "m0_a1_ocr_941_dialog_f2",
+          "relative_path": "data/datasets/m0_a1_extracted/m0_a1_ocr_941_dialog_f2_25000ms.png",
+          "width": 1920,
+          "height": 1080,
+          "timestamp_kind": "ffprobe_actual_pts",
+          "requested_ms": 25000,
+          "actual_pts_ms": 25021,
+          "actual_pts": 480000,
+          "time_base": "1/19184",
+          "origin_pts_ms": 0,
+          "byte_size": 871956,
+          "sha256": "cb48b45a0d2d5d433937ce388921ced6a9f1e3df50744830ef7ee9f0c3d6598e"
+        }
+      ]
+    },
+    {
+      "sample_id": "m0_a1_ocr_905_typing_order",
+      "benchmark": "mme_videoocr",
+      "parent_artifact_id": "ocr_905",
+      "probe_purpose": "vision_multi_image_order",
+      "recommended_roi_region_id": "r2c2",
+      "frames": [
+        {
+          "frame_id": "m0_a1_ocr_905_typing_order_f0",
+          "relative_path": "data/datasets/m0_a1_extracted/m0_a1_ocr_905_typing_order_f0_2000ms.png",
+          "width": 1920,
+          "height": 1080,
+          "timestamp_kind": "ffprobe_actual_pts",
+          "requested_ms": 2000,
+          "actual_pts_ms": 2000,
+          "actual_pts": 30720,
+          "time_base": "1/15360",
+          "origin_pts_ms": 0,
+          "byte_size": 1027662,
+          "sha256": "eb2e481b71f9c8e7e3cb8e2ccbfde6cd168de0a41ed8198449c1a940f9548580"
+        },
+        {
+          "frame_id": "m0_a1_ocr_905_typing_order_f1",
+          "relative_path": "data/datasets/m0_a1_extracted/m0_a1_ocr_905_typing_order_f1_8000ms.png",
+          "width": 1920,
+          "height": 1080,
+          "timestamp_kind": "ffprobe_actual_pts",
+          "requested_ms": 8000,
+          "actual_pts_ms": 8000,
+          "actual_pts": 122880,
+          "time_base": "1/15360",
+          "origin_pts_ms": 0,
+          "byte_size": 165323,
+          "sha256": "0dbba24c861c8b8296176e8692058d3ec33e42256f229e6b95be2030bbc1878c"
+        },
+        {
+          "frame_id": "m0_a1_ocr_905_typing_order_f2",
+          "relative_path": "data/datasets/m0_a1_extracted/m0_a1_ocr_905_typing_order_f2_14000ms.png",
+          "width": 1920,
+          "height": 1080,
+          "timestamp_kind": "ffprobe_actual_pts",
+          "requested_ms": 14000,
+          "actual_pts_ms": 14000,
+          "actual_pts": 215040,
+          "time_base": "1/15360",
+          "origin_pts_ms": 0,
+          "byte_size": 1077938,
+          "sha256": "01d2b8b5210ddeff5b0d18e55b60b198ab7989337c73f3503aa69f45ee2cfaba"
+        },
+        {
+          "frame_id": "m0_a1_ocr_905_typing_order_f3",
+          "relative_path": "data/datasets/m0_a1_extracted/m0_a1_ocr_905_typing_order_f3_20000ms.png",
+          "width": 1920,
+          "height": 1080,
+          "timestamp_kind": "ffprobe_actual_pts",
+          "requested_ms": 20000,
+          "actual_pts_ms": 20000,
+          "actual_pts": 307200,
+          "time_base": "1/15360",
+          "origin_pts_ms": 0,
+          "byte_size": 219874,
+          "sha256": "d2766dcc30b35fbd48cb50bc7a841e1d70d2b4f89b93d24fc47a7df85e979eff"
+        }
+      ]
+    },
+    {
+      "sample_id": "m0_a1_ocr_903_chinese_ocr",
+      "benchmark": "mme_videoocr",
+      "parent_artifact_id": "ocr_903",
+      "probe_purpose": "chinese_small_text_ocr",
+      "recommended_roi_region_id": "r2c2",
+      "frames": [
+        {
+          "frame_id": "m0_a1_ocr_903_chinese_ocr_f0",
+          "relative_path": "data/datasets/m0_a1_extracted/m0_a1_ocr_903_chinese_ocr_f0_4000ms.png",
+          "width": 1280,
+          "height": 720,
+          "timestamp_kind": "ffprobe_actual_pts",
+          "requested_ms": 4000,
+          "actual_pts_ms": 4000,
+          "actual_pts": 51200,
+          "time_base": "1/12800",
+          "origin_pts_ms": 0,
+          "byte_size": 522304,
+          "sha256": "da74afe5fdff420af63244ba4614a858b7144bfd77c4c80ebec4962026228cc4"
+        },
+        {
+          "frame_id": "m0_a1_ocr_903_chinese_ocr_f1",
+          "relative_path": "data/datasets/m0_a1_extracted/m0_a1_ocr_903_chinese_ocr_f1_14000ms.png",
+          "width": 1280,
+          "height": 720,
+          "timestamp_kind": "ffprobe_actual_pts",
+          "requested_ms": 14000,
+          "actual_pts_ms": 14000,
+          "actual_pts": 179200,
+          "time_base": "1/12800",
+          "origin_pts_ms": 0,
+          "byte_size": 534943,
+          "sha256": "82d160b14666bdb28ab3d5a552dba6bcb5201d31435952c5397d0e3464d8a564"
+        },
+        {
+          "frame_id": "m0_a1_ocr_903_chinese_ocr_f2",
+          "relative_path": "data/datasets/m0_a1_extracted/m0_a1_ocr_903_chinese_ocr_f2_24000ms.png",
+          "width": 1280,
+          "height": 720,
+          "timestamp_kind": "ffprobe_actual_pts",
+          "requested_ms": 24000,
+          "actual_pts_ms": 24000,
+          "actual_pts": 307200,
+          "time_base": "1/12800",
+          "origin_pts_ms": 0,
+          "byte_size": 513817,
+          "sha256": "c703a6183d366af649ef577f6a94cdfed58b78b2b659051126b8d700caae0774"
+        }
+      ]
+    },
+    {
+      "sample_id": "m0_a1_ocr_1243_ide_code",
+      "benchmark": "mme_videoocr",
+      "parent_artifact_id": "ocr_1243",
+      "probe_purpose": "software_tutorial_high_vs_grid_roi",
+      "recommended_roi_region_id": "r2c2",
+      "frames": [
+        {
+          "frame_id": "m0_a1_ocr_1243_ide_code_f0",
+          "relative_path": "data/datasets/m0_a1_extracted/m0_a1_ocr_1243_ide_code_f0_5000ms.png",
+          "width": 1280,
+          "height": 720,
+          "timestamp_kind": "ffprobe_actual_pts",
+          "requested_ms": 5000,
+          "actual_pts_ms": 5000,
+          "actual_pts": 76800,
+          "time_base": "1/15360",
+          "origin_pts_ms": 0,
+          "byte_size": 147573,
+          "sha256": "da5ff38dc3aae3cc333dee0d6ffa070b93ad3de2032e55b9fc289f9c0f412308"
+        },
+        {
+          "frame_id": "m0_a1_ocr_1243_ide_code_f1",
+          "relative_path": "data/datasets/m0_a1_extracted/m0_a1_ocr_1243_ide_code_f1_18000ms.png",
+          "width": 1280,
+          "height": 720,
+          "timestamp_kind": "ffprobe_actual_pts",
+          "requested_ms": 18000,
+          "actual_pts_ms": 18000,
+          "actual_pts": 276480,
+          "time_base": "1/15360",
+          "origin_pts_ms": 0,
+          "byte_size": 144190,
+          "sha256": "6ad0fc71b8fb7f18e603e60a7a6bb7cd9bddc3b6add3ed301d16ce439c9bb599"
+        },
+        {
+          "frame_id": "m0_a1_ocr_1243_ide_code_f2",
+          "relative_path": "data/datasets/m0_a1_extracted/m0_a1_ocr_1243_ide_code_f2_30000ms.png",
+          "width": 1280,
+          "height": 720,
+          "timestamp_kind": "ffprobe_actual_pts",
+          "requested_ms": 30000,
+          "actual_pts_ms": 30000,
+          "actual_pts": 460800,
+          "time_base": "1/15360",
+          "origin_pts_ms": 0,
+          "byte_size": 154253,
+          "sha256": "036c325e8dbd99e631268498042e3a3622cca480296645df7cd43500dd3b92da"
+        }
+      ]
+    },
+    {
+      "sample_id": "m0_a1_vmme_001_order",
+      "benchmark": "video_mme_v2",
+      "parent_artifact_id": "vmme_001",
+      "probe_purpose": "vision_multi_image_order",
+      "recommended_roi_region_id": "r2c2",
+      "frames": [
+        {
+          "frame_id": "m0_a1_vmme_001_order_f0",
+          "relative_path": "data/datasets/m0_a1_extracted/m0_a1_vmme_001_order_f0_30000ms.png",
+          "width": 1920,
+          "height": 1080,
+          "timestamp_kind": "ffprobe_actual_pts",
+          "requested_ms": 30000,
+          "actual_pts_ms": 30000,
+          "actual_pts": 384000,
+          "time_base": "1/12800",
+          "origin_pts_ms": 0,
+          "byte_size": 604290,
+          "sha256": "9852024a44704b014c15ea1566d950c34ab7a5ad2a708d4ef755445b706b28f8"
+        },
+        {
+          "frame_id": "m0_a1_vmme_001_order_f1",
+          "relative_path": "data/datasets/m0_a1_extracted/m0_a1_vmme_001_order_f1_120000ms.png",
+          "width": 1920,
+          "height": 1080,
+          "timestamp_kind": "ffprobe_actual_pts",
+          "requested_ms": 120000,
+          "actual_pts_ms": 120000,
+          "actual_pts": 1536000,
+          "time_base": "1/12800",
+          "origin_pts_ms": 0,
+          "byte_size": 962591,
+          "sha256": "b57c06c3045ec0368e6c56a228e3e93ca4ab439594cc98717d08813a44102f60"
+        },
+        {
+          "frame_id": "m0_a1_vmme_001_order_f2",
+          "relative_path": "data/datasets/m0_a1_extracted/m0_a1_vmme_001_order_f2_240000ms.png",
+          "width": 1920,
+          "height": 1080,
+          "timestamp_kind": "ffprobe_actual_pts",
+          "requested_ms": 240000,
+          "actual_pts_ms": 240000,
+          "actual_pts": 3072000,
+          "time_base": "1/12800",
+          "origin_pts_ms": 0,
+          "byte_size": 1169195,
+          "sha256": "607bcaf98eccf824c8d4066dae59027ced5f4a8e64c03c81e10d0b3b3da172ad"
+        },
+        {
+          "frame_id": "m0_a1_vmme_001_order_f3",
+          "relative_path": "data/datasets/m0_a1_extracted/m0_a1_vmme_001_order_f3_360000ms.png",
+          "width": 1920,
+          "height": 1080,
+          "timestamp_kind": "ffprobe_actual_pts",
+          "requested_ms": 360000,
+          "actual_pts_ms": 360000,
+          "actual_pts": 4608000,
+          "time_base": "1/12800",
+          "origin_pts_ms": 0,
+          "byte_size": 983751,
+          "sha256": "9251c05907086faa180080bde99fbdf6e9c9c4444804d78d624fc12734aba02f"
+        }
+      ]
+    },
+    {
+      "sample_id": "m0_a1_vmme_087_procedural",
+      "benchmark": "video_mme_v2",
+      "parent_artifact_id": "vmme_087",
+      "probe_purpose": "vision_multi_image_order",
+      "recommended_roi_region_id": "r2c2",
+      "frames": [
+        {
+          "frame_id": "m0_a1_vmme_087_procedural_f0",
+          "relative_path": "data/datasets/m0_a1_extracted/m0_a1_vmme_087_procedural_f0_15000ms.png",
+          "width": 1920,
+          "height": 1080,
+          "timestamp_kind": "ffprobe_actual_pts",
+          "requested_ms": 15000,
+          "actual_pts_ms": 15000,
+          "actual_pts": 230400,
+          "time_base": "1/15360",
+          "origin_pts_ms": 0,
+          "byte_size": 534228,
+          "sha256": "6a4294f6a6266e3d51d27f0985febc66a272f875012c5887a7b613ad336dd06e"
+        },
+        {
+          "frame_id": "m0_a1_vmme_087_procedural_f1",
+          "relative_path": "data/datasets/m0_a1_extracted/m0_a1_vmme_087_procedural_f1_55000ms.png",
+          "width": 1920,
+          "height": 1080,
+          "timestamp_kind": "ffprobe_actual_pts",
+          "requested_ms": 55000,
+          "actual_pts_ms": 55000,
+          "actual_pts": 844800,
+          "time_base": "1/15360",
+          "origin_pts_ms": 0,
+          "byte_size": 415043,
+          "sha256": "fa1584104076273ca83897eae1dcda14c8af9d5ba4f07ecf9b666008e171ae0b"
+        },
+        {
+          "frame_id": "m0_a1_vmme_087_procedural_f2",
+          "relative_path": "data/datasets/m0_a1_extracted/m0_a1_vmme_087_procedural_f2_105000ms.png",
+          "width": 1920,
+          "height": 1080,
+          "timestamp_kind": "ffprobe_actual_pts",
+          "requested_ms": 105000,
+          "actual_pts_ms": 105000,
+          "actual_pts": 1612800,
+          "time_base": "1/15360",
+          "origin_pts_ms": 0,
+          "byte_size": 589677,
+          "sha256": "22b1fc3b29ce37447999efcfcba791c9b3077432def2f4437fc9a242554c8a76"
+        },
+        {
+          "frame_id": "m0_a1_vmme_087_procedural_f3",
+          "relative_path": "data/datasets/m0_a1_extracted/m0_a1_vmme_087_procedural_f3_150000ms.png",
+          "width": 1920,
+          "height": 1080,
+          "timestamp_kind": "ffprobe_actual_pts",
+          "requested_ms": 150000,
+          "actual_pts_ms": 150000,
+          "actual_pts": 2304000,
+          "time_base": "1/15360",
+          "origin_pts_ms": 0,
+          "byte_size": 607044,
+          "sha256": "c3164acaec949a6656b7b4d38ab483a0f3b8bc9a65d0850cd1fc8add1bb76823"
+        }
+      ]
+    }
+  ]
+}

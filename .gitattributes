@@ -8,3 +8,10 @@ Dockerfile.ci text eol=lf
 *.sql text eol=lf
 *.yaml text eol=lf
 *.yml text eol=lf
+
+# D1 receipts bind exact on-disk bytes on both Windows and Linux.
+eval/d1.py text eol=lf
+eval/d1_metrics.py text eol=lf
+eval/manifests/dev_seed.jsonl text eol=lf
+eval/annotations/dev_seed/dev_seed_questions.json text eol=lf
+eval/manifests/d1_*.json text eol=lf
