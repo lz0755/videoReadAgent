@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.1",
+  "templates": [
+    {
+      "name": "vision_event_state",
+      "relative_path": "event_state.jinja2",
+      "label": "event_state_v1",
+      "template_sha256": "73c0cd19564be6c2825e68034f7801a5ea73c5d7dfc98edfacd7d3bf11a1e61b"
+    }
+  ]
+}
