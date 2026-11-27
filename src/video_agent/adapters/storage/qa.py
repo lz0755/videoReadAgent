@@ -11,6 +11,7 @@ from video_agent.adapters.storage.connection import (
     create_question_with_job,
     immediate_transaction,
 )
+from video_agent.adapters.storage.filesystem import CatalogArtifactStore
 from video_agent.domain.errors import ErrorCode, StorageError
 from video_agent.domain.models import (
     Answer,
@@ -28,6 +29,7 @@ class SQLiteQA:
     def __init__(self, db: Path, question: Question) -> None:
         self.db = db
         self.question = question
+        self._files = CatalogArtifactStore(db.parent)
 
     @property
     def scope(self) -> tuple[str, str]:
@@ -59,8 +61,10 @@ class SQLiteQA:
     def resolve(self, evidence_id: str) -> FrameEvidence | TranscriptSegment | None:
         with closing(connect_sqlite(self.db)) as conn:
             row = conn.execute(
-                "SELECT e.kind,e.payload,e.point_ms,e.start_ms,e.end_ms,e.artifact_id "
-                "FROM evidence e WHERE e.asset_id=? AND e.evidence_id=? AND ("
+                "SELECT e.kind,e.payload,e.point_ms,e.start_ms,e.end_ms,e.artifact_id,"
+                "a.kind,a.sha256 FROM evidence e LEFT JOIN artifacts a "
+                "ON (a.asset_id,a.artifact_id)=(e.asset_id,e.artifact_id) "
+                "WHERE e.asset_id=? AND e.evidence_id=? AND ("
                 "EXISTS (SELECT 1 FROM observation_evidence l JOIN observations o "
                 "USING(asset_id,observation_id) WHERE l.asset_id=e.asset_id "
                 "AND l.evidence_id=e.evidence_id AND o.analysis_id=?) OR "
@@ -82,6 +86,13 @@ class SQLiteQA:
             data.pop("parent_evidence_id", None)
             frame = FrameEvidence.model_validate(data)
             consistent = frame.actual_pts_ms == row[2] and frame.artifact_id == row[5]
+            if row[6] != ("crop" if frame.crop else "frame") or not row[7]:
+                return None
+            try:
+                if not self._files.verify_hash(row[5], row[7]):
+                    return None
+            except StorageError, OSError:
+                return None
             item: FrameEvidence | TranscriptSegment = frame
         else:
             item = TranscriptSegment.model_validate(data)
