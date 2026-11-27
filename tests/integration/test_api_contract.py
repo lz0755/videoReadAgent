@@ -52,14 +52,21 @@ def test_async_submission_is_idempotent_and_questions_survive_reopen(
 
 
 def test_timeline_page_uses_real_observations_and_bounds(
-    client: TestClient, published: tuple[str, str]
+    client: TestClient, published: tuple[str, str], tmp_path: Path
 ) -> None:
     asset, analysis = published
     path = f"/v1/analyses/{analysis}"
     first = client.get(path, params={"offset": 0, "limit": 1})
     assert first.status_code == 200
     page = first.json()
-    assert page["asset_id"] == asset and page["status"] == "succeeded"
+    with closing(connect_sqlite(tmp_path / "managed/agent.sqlite3")) as conn:
+        stored = conn.execute(
+            "SELECT r.status,r.index_state,j.status FROM analysis_runs r JOIN jobs j "
+            "USING(analysis_id) WHERE r.analysis_id=? AND j.kind='analysis'",
+            (analysis,),
+        ).fetchone()
+    assert stored == ("partial", "ready", "partial")
+    assert (page["asset_id"], page["status"], page["index_state"]) == (asset, *stored[:2])
     (entry,) = page["timeline"]
     assert entry["kind"] == "observed" and entry["evidence_ids"]
     assert entry not in client.get(path, params={"offset": 1, "limit": 1}).json()["timeline"]

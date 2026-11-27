@@ -19,8 +19,9 @@ def test_all_representations_share_ownership_auth_and_registered_file_checks(
     root = tmp_path / "managed"
     with closing(connect_sqlite(root / "agent.sqlite3")) as conn:
         eid, pt, digest = conn.execute(
-            "SELECT e.evidence_id,e.point_ms,a.sha256 FROM evidence e JOIN artifacts a USING(artifact_id) "
-            "JOIN observation_evidence l USING(evidence_id) JOIN observations o USING(observation_id) "
+            "SELECT e.evidence_id,e.point_ms,a.sha256 FROM evidence e "
+            "JOIN artifacts a USING(artifact_id) JOIN observation_evidence l USING(evidence_id) "
+            "JOIN observations o USING(observation_id) "
             "WHERE o.analysis_id=? AND e.kind='frame' LIMIT 1",
             (analysis,),
         ).fetchone()
