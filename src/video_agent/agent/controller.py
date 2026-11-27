@@ -9,9 +9,17 @@ from video_agent.agent.state import Phase, PlannerState
 from video_agent.agent.tools import tool_schema
 from video_agent.application.evidence_service import ToolResult
 from video_agent.application.prompt_registry import PromptRegistry
-from video_agent.domain.errors import ErrorCode, VideoAgentError
+from video_agent.domain.errors import BudgetError, ErrorCode, VideoAgentError
 from video_agent.domain.models import Answer, BudgetAccount
 from video_agent.domain.ports import PlannerRequest, PlannerResponse
+
+
+def _remaining_attempts(account: BudgetAccount) -> int:
+    return (
+        account.limits.max_provider_attempts
+        - account.consumed.provider_attempts
+        - account.reserved.provider_attempts
+    )
 
 
 @dataclass
@@ -33,16 +41,26 @@ class Controller:
                     return state.stop(ErrorCode.EXTERNAL_RESULT_UNKNOWN.value)
                 if state.phase == Phase.TOOLS:
                     for call in state.calls:
-                        state.absorb(await self.executor.execute(call))
+                        if (
+                            call.tool_name != "search_evidence"
+                            and _remaining_attempts(guard.get_account(scope)) == 1
+                        ):
+                            break
+                        try:
+                            state.absorb(await self.executor.execute(call))
+                        except BudgetError as exc:
+                            # A nested retry can consume the last non-final attempt.
+                            if (
+                                exc.code == ErrorCode.BUDGET_EXCEEDED
+                                and _remaining_attempts(guard.get_account(scope)) == 1
+                            ):
+                                break
+                            raise
                     state.phase = Phase.DECIDE
                     continue
                 account = guard.get_account(scope)
                 limits, used = account.limits, account.consumed
-                attempts = (
-                    limits.max_provider_attempts
-                    - used.provider_attempts
-                    - account.reserved.provider_attempts
-                )
+                attempts = _remaining_attempts(account)
                 rounds = (limits.max_rounds or self.executor.config.max_rounds) - used.rounds
                 if min(attempts, rounds) <= 0:
                     return state.stop(ErrorCode.BUDGET_EXCEEDED.value)
@@ -100,6 +118,23 @@ class Controller:
                     "reserved": account.reserved.model_dump(),
                     "seconds_left": remaining,
                     "tools": schema,
+                    "response_shape": {
+                        "call_tools": {
+                            "action": "call_tools",
+                            "tool_calls": [
+                                {
+                                    "tool_name": "<whitelisted name>",
+                                    "arguments": "<object matching tool schema>",
+                                }
+                            ],
+                            "answer": None,
+                        },
+                        "final_answer": {
+                            "action": "final_answer",
+                            "tool_calls": [],
+                            "answer": {"status": "<answer status>", "claims": [], "gaps": []},
+                        },
+                    },
                 }
             )
         prompt = self.prompts.render(
