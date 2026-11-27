@@ -1,0 +1,109 @@
+{
+  "status": "verified",
+  "regular_qa_population": 96,
+  "regular_qa_rechecked": 32,
+  "regular_qa_percent": 33.33,
+  "answerable_population": 76,
+  "answerable_rechecked": 22,
+  "abstention_population": 20,
+  "abstention_rechecked": 10,
+  "by_split": {
+    "development_seed": {
+      "reviewed": 6,
+      "population": 24
+    },
+    "development_extra": {
+      "reviewed": 10,
+      "population": 40
+    },
+    "heldout": {
+      "reviewed": 16,
+      "population": 32,
+      "answerable_reviewed": 8,
+      "abstention_reviewed": 8
+    }
+  },
+  "heldout_event_population": 20,
+  "semantic_events_rechecked": 20,
+  "requests_rechecked": 20,
+  "lossless_png_pixel_pts_proofs": 80,
+  "independent_event_context_frames": 100,
+  "event_endpoints_revised_at_independent_rereview": 1,
+  "reviewed_regular_answers_requiring_change": 0,
+  "short_original": 8,
+  "short_final": 8,
+  "short_retain": 8,
+  "short_dev": 5,
+  "short_holdout": 3,
+  "short_clip_decision": "Retain all eight original clips whose container and primary duration are under 30s (five development, three held-out). Each supports its four scoped QA; the three held-out short clips respectively have accepted visible timed events with real bracketing frames. They cover short narrative or GUI/output states and are excluded from any ten-minute performance inference. The source-series replacement affected a different clip. Private per-source decisions accompany this note.",
+  "seed_reference_corrections": 1,
+  "seed_endpoint_narrowed_ms": 54,
+  "original_d0_frozen_files_unchanged": true,
+  "frozen_development_questions_identical_to_developer_export": 64,
+  "human_raters": 0,
+  "heldout_first_pass_agent_roles": 2,
+  "independent_agent_rereview_roles": 1,
+  "limitations": "Shared agent platform and physically shared filesystem; operational role separation and gitignored storage only. An agent second review is not independent human validation. Real upstream authorship can be unknown. At-source visual, subtitle, audio stream and local auxiliary checks are modality-specific. No project QA/vision model or M6 performance/quality evaluation.",
+  "source_screen": {
+    "reviewed_videos": 24,
+    "all_unordered_pairs": 276,
+    "cross_split_pairs": 128,
+    "decoded_fingerprint_frames": 2421,
+    "cross_final_candidate_video_pairs": 11,
+    "cross_final_confirmed_related_pairs": 0,
+    "original_cross_series_collisions": 1,
+    "prior_holdout_sources_removed": 1,
+    "admitted_replacements": 1,
+    "selection_candidates_screened": 2,
+    "ineligible_for_minimum_duration": 1,
+    "series_check_basis": "Verified original identifiers, published source URLs where available, task metadata, source bytes and rights; time-spaced perceptual/color and OCR/subtitle overlap screens plus independent visual source and candidate comparison. Source attribution is limited to the licensed local benchmark records and observable imagery; no claim about unavailable authorship."
+  },
+  "historical_m0_source_sha256": "430a75e93bdf862e9d48e2926b5256ff83ebf379d36d670cd5bea4c3b793295e",
+  "d1_source_sha256": "dc78aac23451bb1e7f9824457b7c3e2692dd63f8bae8c6d7f9a55a2c21b226dc",
+  "packet_sha256": "5386624419cbaae51abf549c8e90509af4ad90fa0b09a440ab61c3f6fd148625",
+  "protocol_sha256": "ed3cd1ddb47f96e8b986c39bd904bf4886aacdfc755f976922b14d2360b05e5a",
+  "signoff_inputs": {
+    "development_sha256": "116c7930be09223a426d03404881b46d4f4292a05328c2c3ec024de668e91438",
+    "evaluator_fragment_hashes": [
+      "707d8fcb5b887016b636efa3c2c695e5483997d6ddb7413bfcb6aef40abeb117",
+      "ca2ec957b5009a93ced19bb6dfe7eaeffb479379df79c4f618971044e570ddc6"
+    ]
+  },
+  "program_checks": {
+    "windows_official_cli_runs": 2,
+    "exit_codes": [
+      0,
+      0
+    ],
+    "same_bytes_mtime_and_inode_on_windows": true,
+    "cross_platform_linux": {
+      "exit_code": 0,
+      "network": "none",
+      "root_filesystem_read_only": true,
+      "bind_mount_read_only": true,
+      "existing_local_image_sha256": "0a84ed6b5f0073fc65b4081c4404e2a190422eff3557c45f2c9f714b01d37082",
+      "stdout_identical_to_receipt_json": true,
+      "public_fields_identical": 18,
+      "receipt_sha256": "c7df675473fe97ced31e7358e6299d1920b4bc363765a0d12ff12c8653b36fe4",
+      "historical_image_default_evaluator_exit": 0,
+      "historical_image_default_evaluator_matching_fields": 16,
+      "historical_image_only_differing_fields": [
+        "metrics_sha256",
+        "verifier_sha256"
+      ],
+      "historical_image_program_hashes_reproduced_by_LF_to_CRLF": true,
+      "canonical_evaluator_from_readonly_snapshot": true
+    },
+    "public_freeze_receipt_sha256": "c7df675473fe97ced31e7358e6299d1920b4bc363765a0d12ff12c8653b36fe4",
+    "source_manifest_validated_by_existing_curator": true,
+    "formal_fields_validated": "source byte sizes and content hashes, recorded local rights, primary PTS and time base, grouped splits, all QA counts/abstentions/evidence windows, distinct event and request bindings, 80 PNG encodings, source pixels and presentation timestamps"
+  },
+  "regular_second_agent_answer_percent": 28.95,
+  "private_blind_delivery_projection": {
+    "regular_requests_without_gold": 32,
+    "localization_requests_without_gold": 20,
+    "opaque_ids": true,
+    "gold_fields": 0,
+    "sha256": "1f4006fd4cfbd0e2a3d0ec5563211ee49eaacd203013c42759668c69ff6cb579"
+  }
+}
