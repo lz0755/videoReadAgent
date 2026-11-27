@@ -5,17 +5,24 @@ from typing import Any
 
 import pytest
 
+from tests.integration.test_event_localization import QUERY, Clip, clip, make_rig
 from tests.integration.test_m2_entrypoints import sources
-from video_agent.adapters.llm.fake import FakePlannerProvider
+from video_agent.adapters.llm.fake import FakePlannerProvider, FakeVisionProvider
 from video_agent.adapters.storage.connection import connect_sqlite, create_analysis_with_job
 from video_agent.adapters.storage.qa import SQLiteQA
 from video_agent.adapters.storage.search import SQLiteSearch
 from video_agent.cli import main
 from video_agent.domain.errors import ErrorCode, VideoAgentError
 from video_agent.domain.models import FrameEvidence, Question, TimeRangeMs
-from video_agent.domain.ports import PlannerRequest, PlannerResponse, ToolCallProposal
+from video_agent.domain.ports import (
+    PlannerRequest,
+    PlannerResponse,
+    ToolCallProposal,
+    VisionRequest,
+    VisionResponse,
+)
 
-__all__ = ["sources"]
+__all__ = ["clip", "sources"]
 
 
 @pytest.fixture
@@ -251,3 +258,45 @@ def test_operator_ceiling_reserves_last_attempt_for_synthesis(
         ).fetchone()
         assert json.loads(row[0])["max_provider_attempts"] == 1
         assert json.loads(row[1])["provider_attempts"] == 1
+
+
+def test_published_event_uses_scoped_sql_neighbors_and_four_actual_boundary_frames(
+    clip: Clip, tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    rig = make_rig(clip, tmp_path)
+
+    async def classify(_: FakeVisionProvider, req: VisionRequest) -> VisionResponse:
+        return await rig.vision.observe(req)
+
+    monkeypatch.setattr(FakeVisionProvider, "observe", classify)
+    code, result = ask((tmp_path, "asset", "a"), QUERY, capsys, "--mode", "event_localization")
+    assert code == 0 and result["answer"]["status"] == "answered"
+    assert result["first_hits"][0]["doc_id"] == rig.initial.hits[0].doc_id
+    event = result["answer"]["localization"]
+    assert event["refined"] and len(rig.vision.calls) == 2
+    with closing(connect_sqlite(rig.db)) as conn:
+        for name, states in [("start_bracket", [False, True]), ("end_bracket", [True, False])]:
+            bracket = event[name]
+            for prefix, bound, visible in zip(
+                ("before", "after"), ("lower", "upper"), states, strict=True
+            ):
+                row = conn.execute(
+                    "SELECT e.point_ms FROM evidence e JOIN observation_evidence l "
+                    "USING(evidence_id,asset_id) JOIN observations o "
+                    "USING(observation_id,asset_id) "
+                    "WHERE e.evidence_id=? AND o.asset_id=? AND o.analysis_id=?",
+                    (bracket[prefix + "_evidence_id"], "asset", "a"),
+                ).fetchone()
+                assert row == (bracket[bound + "_ms"],) and clip.states[row[0]] is visible
+        job = conn.execute(
+            "SELECT j.status,a.payload FROM jobs j JOIN answers a "
+            "USING(question_id,asset_id,analysis_id) "
+            "WHERE j.job_id=?",
+            (result["qa_job_id"],),
+        ).fetchone()
+        assert job[0] == "succeeded" and json.loads(job[1]) == result["answer"]
+    assert result["consumed"]["tool_calls"] == 3
+    assert result["consumed"]["expensive_tool_calls"] == result["usage"]["total_attempts"] == 2
+    assert (
+        result["usage"]["total_images_sent"] == sum(len(r.images) for r in rig.vision.calls) <= 32
+    )
