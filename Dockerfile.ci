@@ -18,6 +18,7 @@ WORKDIR /app
 COPY pyproject.toml uv.lock README.md AGENTS.md .gitattributes ./
 COPY Dockerfile.ci ./
 COPY .github ./.github
+COPY .streamlit/config.toml ./.streamlit/config.toml
 COPY src ./src
 COPY config ./config
 COPY prompts ./prompts
