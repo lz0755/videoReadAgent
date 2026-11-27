@@ -6,7 +6,7 @@ from pathlib import PureWindowsPath
 
 from fastapi import APIRouter, HTTPException, Request
 from starlette.concurrency import run_in_threadpool
-from starlette.datastructures import UploadFile
+from starlette.datastructures import FormData, UploadFile
 from starlette.formparsers import MultiPartException, MultiPartParser
 from starlette.requests import ClientDisconnect
 
@@ -49,6 +49,14 @@ class UploadParser(MultiPartParser):
     def on_end(self) -> None:
         self.complete = True
 
+    async def parse(self) -> FormData:
+        form = await super().parse()
+        if not self.complete:
+            for staged in self._files_to_close_on_error:
+                staged.close()
+            raise HTTPException(400, "INCOMPLETE_UPLOAD")
+        return form
+
 
 def upload_router(importer: AssetImporter, limit: int) -> APIRouter:
     router = APIRouter()
@@ -72,8 +80,6 @@ def upload_router(importer: AssetImporter, limit: int) -> APIRouter:
         try:
             file = form.get("file")
             record = form.get("authorization")
-            if not parser.complete:
-                raise HTTPException(400, "INCOMPLETE_UPLOAD")
             if (
                 not isinstance(file, UploadFile)
                 or not isinstance(record, str)
