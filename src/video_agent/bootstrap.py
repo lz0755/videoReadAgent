@@ -7,6 +7,7 @@ No import-time network access, API key lookups, or model weight loading.
 from __future__ import annotations
 
 import json
+import math
 import os
 import sqlite3
 import subprocess
@@ -32,6 +33,7 @@ from video_agent.adapters.llm.deepseek import (
 from video_agent.adapters.llm.executor import ProviderExecutor
 from video_agent.adapters.llm.fake import FakePlannerProvider, FakeVisionProvider
 from video_agent.adapters.llm.openai_slice import OPENAI_MODEL_ID
+from video_agent.adapters.llm.qa_planner import QAPlannerProvider
 from video_agent.adapters.llm.vision import StrictVisionProvider, check_images
 from video_agent.adapters.media.probe import probe_managed
 from video_agent.adapters.media.roi import CatalogImages
@@ -50,23 +52,34 @@ from video_agent.adapters.storage.filesystem import (
 )
 from video_agent.adapters.storage.media_cache import FileMediaCache, model_directory_digest
 from video_agent.adapters.storage.memory_budget import InMemoryBudgetStore
+from video_agent.adapters.storage.migrate import run_migrations
+from video_agent.adapters.storage.observations import SQLiteObservations
+from video_agent.adapters.storage.qa import SQLiteQA
+from video_agent.adapters.storage.search import SQLiteSearch
 from video_agent.adapters.storage.search_index import SQLiteSearchIndex
 from video_agent.adapters.storage.stages import StageCache
 from video_agent.adapters.storage.worker_lock import WorkerLock
+from video_agent.agent.answer_validator import AnswerValidator
+from video_agent.agent.controller import Controller
+from video_agent.agent.executor import ToolExecutor
 from video_agent.application.budget import (
     BudgetedPlannerProvider,
     BudgetedVisionProvider,
     BudgetGuard,
     SliceRunLimits,
 )
+from video_agent.application.event_localization import EventLocalizer
+from video_agent.application.evidence_service import EvidenceService
+from video_agent.application.frame_review import FrameReview
 from video_agent.application.indexing import IndexPipeline
 from video_agent.application.ingest import AssetImporter
 from video_agent.application.media_cache import CachedMediaBackend, CachedTranscriber
 from video_agent.application.media_timeline import build_playback_map
 from video_agent.application.prompt_registry import PromptRegistry, canonical_json_sha256
+from video_agent.application.qa import answer_question
 from video_agent.application.sampling import SceneProfile
 from video_agent.application.slice import VerticalSliceResult
-from video_agent.domain.config import AppConfig, PriceConfig, ProviderConfig
+from video_agent.domain.config import AppConfig, PriceConfig, ProviderConfig, QaConfig
 from video_agent.domain.errors import (
     BudgetError,
     ErrorCode,
@@ -75,13 +88,15 @@ from video_agent.domain.errors import (
     StorageError,
     VideoAgentError,
 )
-from video_agent.domain.models import FrameEvidence, VideoAsset
-from video_agent.domain.policies import check_cloud_egress_allowed
+from video_agent.domain.models import FrameEvidence, Question, RegionId, VideoAsset
+from video_agent.domain.policies import build_budget_limits, check_cloud_egress_allowed
 from video_agent.domain.ports import (
     Clock,
     ImageInput,
     MediaBackend,
     PlannerProvider,
+    PlannerRequest,
+    PlannerResponse,
     Transcriber,
     VisionProvider,
     VisionRequest,
@@ -642,7 +657,200 @@ async def ask_registered_asset(
     budget_config_path: Path | None = None,
     live_provider: Literal["deepseek", "openai"] | None = None,
 ) -> dict[str, object]:
-    raise NotImplementedError
+    data_root = checked_local_path(data_root)
+    db = checked_local_path(data_root / "agent.sqlite3")
+    if not db.is_file():
+        raise StorageError(
+            ErrorCode.INDEX_NOT_READY, "registered asset and published index required"
+        )
+    # The migration runner takes the same writer lock; finish upgrades before acquiring it for QA.
+    run_migrations(db, data_root=data_root, writers_stopped=True)
+    with (
+        WorkerLock(data_root),
+        closing(
+            build_slice_container(
+                mode=mode,
+                data_root=data_root,
+                config_path=config_path,
+                live_provider=live_provider,
+                budget_config_path=budget_config_path,
+            )
+        ) as resources,
+    ):
+        files = CatalogArtifactStore(data_root)
+        asset = _index_asset(db, files, asset_id)
+        config = resources.config
+        if (
+            asset.size_bytes > config.media.max_file_bytes
+            or asset.duration_ms > config.media.max_duration_ms
+        ):
+            raise MediaError(ErrorCode.MEDIA_LIMIT_EXCEEDED, "asset exceeds configured QA bounds")
+        question = Question(
+            question_id="q_" + uuid.uuid4().hex,
+            asset_id=asset_id,
+            analysis_id=analysis_id,
+            query_text=query,
+            mode=question_mode,
+            created_at_utc=resources.clock.now_utc().isoformat(),
+        )
+        job = "job_" + uuid.uuid4().hex
+        repository = SQLiteQA(db, question)
+        repository.begin(job)
+        try:
+            return await _run_registered_question(resources, files, db, asset, repository, job)
+        except Exception as exc:
+            code = exc.code if isinstance(exc, VideoAgentError) else ErrorCode.STORAGE_ERROR
+            reason = repository.fail(job, code)
+            ids: dict[str, object] = {"question_id": question.question_id, "qa_job_id": job}
+            if reason != code:
+                raise StorageError(reason, "question was cancelled", details=ids) from exc
+            if isinstance(exc, VideoAgentError):
+                exc.details.update(ids)
+            raise
+
+
+def _bounded_qa(config: AppConfig, approval: SliceRunLimits | None) -> AppConfig:
+    caps = {
+        "max_rounds": 5,
+        "max_tool_calls": 6,
+        "max_expensive_tool_calls": 2,
+        "max_submitted_image_parts": 32,
+        "max_images_per_request": 16,
+        "max_provider_attempts": 10,
+        "deadline_seconds": 180,
+        "max_clip_ms": 8000,
+        "inspect_fps": 2,
+    }
+    if approval:
+        # BudgetLimits has positive integer fields. The guard additionally enforces the exact
+        # approved zero/fractional limits and the run's absolute deadline at the dispatch boundary.
+        for key in (
+            "max_provider_attempts",
+            "max_submitted_image_parts",
+            "max_images_per_request",
+            "deadline_seconds",
+        ):
+            approved = getattr(approval, key)
+            if approved is not None:
+                caps[key] = min(caps[key], max(1, math.ceil(approved)))
+    qa = QaConfig.model_validate(
+        {key: min(cap, getattr(config.qa, key)) for key, cap in caps.items()}
+    )
+    return config.model_copy(update={"qa": qa})
+
+
+async def _run_registered_question(
+    resources: SliceContainer,
+    files: CatalogArtifactStore,
+    db: Path,
+    asset: VideoAsset,
+    repository: SQLiteQA,
+    job: str,
+) -> dict[str, object]:
+    q = repository.question
+    approval = resources.budget_guard.run_limits
+    config = _bounded_qa(resources.config, approval)
+    guard = BudgetGuard(
+        store=SQLiteBudgetStore(db),
+        clock=resources.clock,
+        config=config,
+        prices=resources.prices,
+        run_limits=approval,
+    )
+    guard.ensure_started(q.question_id, "qa", limits=build_budget_limits(config, "qa"))
+    live = resources.mode == "live"
+
+    def authorize() -> None:
+        if live:
+            check_cloud_egress_allowed(
+                cloud_upload_enabled=approval is not None,
+                has_credential=bool(os.environ.get(config.provider.api_key_env, "").strip()),
+            )
+
+    providers = ProviderExecutor(guard, authorize=authorize)
+    planner: PlannerProvider = (
+        QAPlannerProvider(
+            provider_name=config.provider.name,
+            model_id=config.provider.model,
+            api_key_env=config.provider.api_key_env,
+            cloud_upload_enabled=True,
+        )
+        if live
+        else FakePlannerProvider()
+    )
+    vision = StrictVisionProvider(
+        _live_vision(config, files) if live else FakeVisionProvider(duration_ms=asset.duration_ms)
+    )
+    catalog = CatalogImages(db, files)
+    high_detail = not live or _verified_detail(config)
+
+    def prepare(frame: FrameEvidence, region: RegionId) -> tuple[FrameEvidence, ImageInput, str]:
+        prepared = catalog.prepare_frame(
+            frame, "software_tutorial", region, verified_high_detail=high_detail
+        )
+        return prepared.frame, prepared.image, prepared.sha256
+
+    async def send(request: VisionRequest, parent: str) -> VisionResponse:
+        check_images(catalog, request, max_images=config.qa.max_images_per_request)
+        return await providers.observe(
+            vision,
+            request,
+            scope_id=q.question_id,
+            operation_key=parent,
+            parent_tool_call_id=parent,
+        )
+
+    async def decide(request: PlannerRequest, final: bool) -> PlannerResponse:
+        round_number = guard.get_account(q.question_id).consumed.rounds
+        return await providers.decide(
+            planner, request, operation_key=f"planner/{round_number}", final=final
+        )
+
+    prompts = resources.prompt_registry
+    vision_prompts = (
+        PromptRegistry(Path(config.prompts.registry_path).parent / "vision" / "event_registry.json")
+        if q.mode == "event_localization"
+        else prompts
+    )
+    frames = FrameReview(
+        asset,
+        q,
+        job,
+        resources.media_backend,
+        vision_prompts,
+        prepare,
+        send,
+        SQLiteObservations(db).save,
+        lambda: guard.remaining_seconds(q.question_id),
+    )
+    tools = ToolExecutor(
+        guard,
+        EvidenceService(
+            q,
+            asset.duration_ms,
+            SQLiteSearch(db),
+            repository.read_observation,
+            frames.run,
+            repository.allow_region,
+        ),
+        config.qa,
+    )
+    validator = AnswerValidator(q, asset.duration_ms, repository.resolve)
+    controller = Controller(tools, prompts, decide, validator.validate)
+    localizer = EventLocalizer(q, asset.duration_ms, repository.context, tools.execute)
+    answer, hits = await answer_question(job, controller, localizer, validator)
+    repository.publish(answer, job)
+    return {
+        "asset_id": q.asset_id,
+        "analysis_id": q.analysis_id,
+        "question_id": q.question_id,
+        "qa_job_id": job,
+        "provider_mode": resources.mode,
+        "answer": answer.model_dump(),
+        "first_hits": [hit.model_dump() for hit in hits],
+        "usage": guard.get_ledger(q.question_id).model_dump(),
+        "consumed": guard.get_account(q.question_id).consumed.model_dump(),
+    }
 
 
 async def index_registered_asset(

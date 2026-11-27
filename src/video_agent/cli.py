@@ -22,6 +22,7 @@ from pydantic import ValidationError
 
 from video_agent.application.slice import SliceQuestionSpec, VerticalSliceResult, run_vertical_slice
 from video_agent.bootstrap import (
+    ask_registered_asset,
     build_asset_importer,
     build_slice_container,
     index_registered_asset,
@@ -300,6 +301,24 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     index.add_argument("--json", action="store_true")
 
+    ask = subparsers.add_parser("ask", help="Ask a question against a published analysis")
+    ask.add_argument("--asset-id", required=True)
+    ask.add_argument("--analysis-id", required=True)
+    ask.add_argument("--question", required=True)
+    ask.add_argument("--mode", choices=("qa", "event_localization"), default="qa")
+    ask.add_argument("--data-root", type=Path, default=Path("data"))
+    ask.add_argument("--config", type=Path, default=Path("config/defaults.yaml"))
+    ask_mode = ask.add_mutually_exclusive_group(required=True)
+    ask_mode.add_argument(
+        "--offline", action="store_true", help="Use deterministic local Fake providers"
+    )
+    ask_mode.add_argument(
+        "--live", action="store_true", help="Use the explicitly approved cloud provider"
+    )
+    ask.add_argument("--provider", choices=("openai", "deepseek"))
+    ask.add_argument("--budget-config", type=Path)
+    ask.add_argument("--json", action="store_true")
+
     assets = subparsers.add_parser("assets", help="Manage user-selected local video files")
     imports = assets.add_subparsers(dest="asset_command", required=True).add_parser(
         "import", help="Register an authorized file and retain a managed copy"
@@ -417,6 +436,31 @@ def main(argv: Sequence[str] | None = None) -> int:
     """CLI entrypoint."""
     parser = _build_parser()
     args = parser.parse_args(list(argv) if argv is not None else None)
+
+    if args.command == "ask":
+        try:
+            qa = ask_registered_asset(
+                data_root=args.data_root,
+                asset_id=args.asset_id,
+                analysis_id=args.analysis_id,
+                query=args.question,
+                question_mode=args.mode,
+                mode="live" if args.live else "offline",
+                config_path=args.config,
+                budget_config_path=args.budget_config,
+                live_provider=args.provider,
+            )
+            qa_result = asyncio.run(qa) if args.live else _run_offline_coro(qa)
+        except (VideoAgentError, ValueError, OSError, sqlite3.Error) as exc:
+            error = {"code": exc.code.value if isinstance(exc, VideoAgentError) else "QA_FAILED"}
+            if isinstance(exc, VideoAgentError):
+                for key in ("question_id", "qa_job_id"):
+                    if isinstance(value := exc.details.get(key), str):
+                        error[key] = value
+            print(json.dumps({"error": error}) if args.json else error["code"], file=sys.stderr)
+            return 1
+        print(json.dumps(qa_result if args.json else qa_result["answer"], ensure_ascii=False))
+        return 0
 
     if args.command == "index":
         if args.retry and not args.analysis_id:
