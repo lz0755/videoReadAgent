@@ -6,9 +6,11 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from starlette.responses import JSONResponse
 
+from video_agent.adapters.storage.jobs import ResourceMissing
 from video_agent.api.assets import upload_router
+from video_agent.api.jobs import job_router
 from video_agent.api.middleware import LocalRequests
-from video_agent.bootstrap import build_asset_importer, load_app_config
+from video_agent.bootstrap import build_asset_importer, build_jobs, load_app_config
 from video_agent.domain.errors import ErrorCode, VideoAgentError
 
 
@@ -22,6 +24,11 @@ def create_app(
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
     app.add_middleware(LocalRequests, token=token, file_limit=limit)
     app.include_router(upload_router(build_asset_importer(data_root, config), limit))
+    app.include_router(job_router(build_jobs(data_root, config)))
+
+    @app.exception_handler(ResourceMissing)
+    async def missing(request: Request, exc: ResourceMissing) -> JSONResponse:
+        return JSONResponse({"detail": "NOT_FOUND"}, 404)
 
     @app.exception_handler(RequestValidationError)
     async def invalid_input(request: Request, exc: RequestValidationError) -> JSONResponse:

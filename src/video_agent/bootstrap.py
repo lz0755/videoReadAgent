@@ -50,6 +50,7 @@ from video_agent.adapters.storage.filesystem import (
     ManagedSourceStore,
     checked_local_path,
 )
+from video_agent.adapters.storage.jobs import SQLiteJobs
 from video_agent.adapters.storage.media_cache import FileMediaCache, model_directory_digest
 from video_agent.adapters.storage.memory_budget import InMemoryBudgetStore
 from video_agent.adapters.storage.migrate import run_migrations
@@ -73,9 +74,10 @@ from video_agent.application.evidence_service import EvidenceService
 from video_agent.application.frame_review import FrameReview
 from video_agent.application.indexing import IndexPipeline
 from video_agent.application.ingest import AssetImporter
+from video_agent.application.jobs import ExecutionMode, index_fingerprint
 from video_agent.application.media_cache import CachedMediaBackend, CachedTranscriber
 from video_agent.application.media_timeline import build_playback_map
-from video_agent.application.prompt_registry import PromptRegistry, canonical_json_sha256
+from video_agent.application.prompt_registry import PromptRegistry
 from video_agent.application.qa import answer_question
 from video_agent.application.sampling import SceneProfile
 from video_agent.application.slice import VerticalSliceResult
@@ -645,6 +647,32 @@ def _verified_detail(config: AppConfig) -> bool:
     )
 
 
+def build_jobs(root: Path, config: AppConfig) -> SQLiteJobs:
+    root = checked_local_path(root)
+    db = checked_local_path(root / "agent.sqlite3")
+    if not db.is_file():
+        raise StorageError(ErrorCode.MIGRATION_ERROR, "initialize the database first")
+    prompts = PromptRegistry(Path(config.prompts.registry_path))
+    bundle = prompts.compute_bundle_hash(
+        tool_schema={}, output_schema=VisionResponse.model_json_schema()
+    )
+    guard = BudgetGuard(
+        store=SQLiteBudgetStore(db),
+        clock=SystemClock(),
+        config=config,
+        prices=load_price_config(Path(config.billing.price_config_path)),
+    )
+    identities: dict[tuple[SceneProfile, ExecutionMode], str] = {}
+    for profile in ("overview", "software_tutorial"):
+        identities[profile, "offline"] = index_fingerprint(
+            config, profile, "offline", "fake-vision", True
+        )
+        identities[profile, "live"] = index_fingerprint(
+            config, profile, "live", config.provider.model, _verified_detail(config)
+        )
+    return SQLiteJobs(root, identities, bundle, guard.get_ledger)
+
+
 async def ask_registered_asset(
     *,
     data_root: Path,
@@ -956,9 +984,7 @@ async def index_registered_asset(
             bundle = resources.prompt_registry.compute_bundle_hash(
                 tool_schema={}, output_schema=VisionResponse.model_json_schema()
             )
-            config_hash = canonical_json_sha256(
-                [config.analysis.model_dump(), profile, mode, port.model_id, high]
-            )
+            config_hash = index_fingerprint(config, profile, mode, port.model_id, high)
             job = _bind_index_job(
                 db,
                 asset,

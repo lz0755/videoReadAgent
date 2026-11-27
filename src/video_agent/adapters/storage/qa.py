@@ -25,6 +25,55 @@ from video_agent.domain.models import (
 from video_agent.domain.ports import SearchHit
 
 
+def resolve_evidence(
+    db: Path, files: CatalogArtifactStore, asset_id: str, analysis_id: str, evidence_id: str
+) -> FrameEvidence | TranscriptSegment | None:
+    with closing(connect_sqlite(db)) as conn:
+        row = conn.execute(
+            "SELECT e.kind,e.payload,e.point_ms,e.start_ms,e.end_ms,e.artifact_id,"
+            "a.kind,a.sha256 FROM evidence e LEFT JOIN artifacts a "
+            "ON (a.asset_id,a.artifact_id)=(e.asset_id,e.artifact_id) "
+            "WHERE e.asset_id=? AND e.evidence_id=? AND ("
+            "EXISTS (SELECT 1 FROM observation_evidence l JOIN observations o "
+            "USING(asset_id,observation_id) WHERE l.asset_id=e.asset_id "
+            "AND l.evidence_id=e.evidence_id AND o.analysis_id=?) OR "
+            "(e.kind='transcript' AND EXISTS (SELECT 1 FROM search_docs d "
+            "WHERE d.asset_id=e.asset_id AND d.analysis_id=? AND d.source_kind='transcript' "
+            "AND d.source_id=e.evidence_id)))",
+            (
+                asset_id,
+                evidence_id,
+                analysis_id,
+                analysis_id,
+            ),
+        ).fetchone()
+    if row is None:
+        return None
+    data = json.loads(row[1])
+    if row[0] == "frame":
+        # M3 records a crop's immutable parent alongside the domain payload.
+        data.pop("parent_evidence_id", None)
+        frame = FrameEvidence.model_validate(data)
+        consistent = frame.actual_pts_ms == row[2] and frame.artifact_id == row[5]
+        if row[6] != ("crop" if frame.crop else "frame") or not row[7]:
+            return None
+        try:
+            if not files.verify_hash(row[5], row[7]):
+                return None
+        except StorageError, OSError:
+            return None
+        item: FrameEvidence | TranscriptSegment = frame
+    else:
+        item = TranscriptSegment.model_validate(data)
+        consistent = (item.time_range.start_ms, item.time_range.end_ms) == (row[3], row[4])
+    if not consistent or (item.asset_id, item.evidence_id) != (
+        asset_id,
+        evidence_id,
+    ):
+        raise StorageError(ErrorCode.INVALID_CITATION, "stored evidence identity differs")
+    return item
+
+
 class SQLiteQA:
     def __init__(self, db: Path, question: Question) -> None:
         self.db = db
@@ -59,50 +108,7 @@ class SQLiteQA:
             )
 
     def resolve(self, evidence_id: str) -> FrameEvidence | TranscriptSegment | None:
-        with closing(connect_sqlite(self.db)) as conn:
-            row = conn.execute(
-                "SELECT e.kind,e.payload,e.point_ms,e.start_ms,e.end_ms,e.artifact_id,"
-                "a.kind,a.sha256 FROM evidence e LEFT JOIN artifacts a "
-                "ON (a.asset_id,a.artifact_id)=(e.asset_id,e.artifact_id) "
-                "WHERE e.asset_id=? AND e.evidence_id=? AND ("
-                "EXISTS (SELECT 1 FROM observation_evidence l JOIN observations o "
-                "USING(asset_id,observation_id) WHERE l.asset_id=e.asset_id "
-                "AND l.evidence_id=e.evidence_id AND o.analysis_id=?) OR "
-                "(e.kind='transcript' AND EXISTS (SELECT 1 FROM search_docs d "
-                "WHERE d.asset_id=e.asset_id AND d.analysis_id=? AND d.source_kind='transcript' "
-                "AND d.source_id=e.evidence_id)))",
-                (
-                    self.question.asset_id,
-                    evidence_id,
-                    self.question.analysis_id,
-                    self.question.analysis_id,
-                ),
-            ).fetchone()
-        if row is None:
-            return None
-        data = json.loads(row[1])
-        if row[0] == "frame":
-            # M3 records a crop's immutable parent alongside the domain payload.
-            data.pop("parent_evidence_id", None)
-            frame = FrameEvidence.model_validate(data)
-            consistent = frame.actual_pts_ms == row[2] and frame.artifact_id == row[5]
-            if row[6] != ("crop" if frame.crop else "frame") or not row[7]:
-                return None
-            try:
-                if not self._files.verify_hash(row[5], row[7]):
-                    return None
-            except StorageError, OSError:
-                return None
-            item: FrameEvidence | TranscriptSegment = frame
-        else:
-            item = TranscriptSegment.model_validate(data)
-            consistent = (item.time_range.start_ms, item.time_range.end_ms) == (row[3], row[4])
-        if not consistent or (item.asset_id, item.evidence_id) != (
-            self.question.asset_id,
-            evidence_id,
-        ):
-            raise StorageError(ErrorCode.INVALID_CITATION, "stored evidence identity differs")
-        return item
+        return resolve_evidence(self.db, self._files, *self.scope, evidence_id)
 
     def read_observation(self, hit: SearchHit) -> Observation:
         invalid = StorageError(ErrorCode.INVALID_CITATION, "unbound or changed index document")
