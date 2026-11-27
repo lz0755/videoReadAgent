@@ -134,6 +134,11 @@ class PixelVision:
                 state = "unclear"
             elif self.fault == "all_active":
                 state = "active"
+            elif self.fault == f"occluded-reversal-{len(self.calls)}":
+                if i == 0:
+                    state = "active" if len(self.calls) == 1 else "inactive"
+                elif i == 1:
+                    state = "unclear"
             span = TimeRangeMs(start_ms=image.actual_pts_ms, end_ms=image.actual_pts_ms + 1)
             rows.append(
                 Observation(
@@ -178,7 +183,13 @@ class Rig:
 
 
 def make_rig(
-    clip: Clip, root: Path, *, fault: str = "", cap: int = 32, after_ms: int = 18150
+    clip: Clip,
+    root: Path,
+    *,
+    fault: str = "",
+    cap: int = 32,
+    after_ms: int = 18150,
+    question_text: str = QUERY,
 ) -> Rig:
     cfg = load_app_config()
     db = root / "agent.sqlite3"
@@ -190,7 +201,7 @@ def make_rig(
         question_id="q",
         asset_id="asset",
         analysis_id="a",
-        query_text=QUERY,
+        query_text=question_text,
         mode="event_localization",
         created_at_utc="now",
     )
@@ -210,7 +221,7 @@ def make_rig(
             analysis_id="a",
             job_id="qa",
             question_id="q",
-            query_text=QUERY,
+            query_text=question_text,
             mode=question.mode,
             created_at="now",
         )
@@ -300,7 +311,9 @@ def make_rig(
     initial = _run_coro(
         executor.execute(
             ToolCallProposal(
-                tool_call_id="search", tool_name="search_evidence", arguments={"query": QUERY}
+                tool_call_id="search",
+                tool_name="search_evidence",
+                arguments={"query": question_text},
             )
         )
     )
@@ -409,3 +422,25 @@ def test_compare_does_not_send_two_copies_of_one_decoded_frame(clip: Clip, tmp_p
             )
         )
     assert not rig.vision.calls
+
+
+@pytest.mark.parametrize("side", [1, 2])
+def test_known_states_cannot_reverse_across_an_unclear_frame(
+    clip: Clip, tmp_path: Path, side: int
+) -> None:
+    rig = make_rig(clip, tmp_path, fault=f"occluded-reversal-{side}")
+    answer, _ = _run_coro(rig.locate.run("qa", rig.initial))
+    assert len(rig.vision.calls) == 2
+    assert answer.status == "partial" and answer.localization is None and answer.gaps
+    assert len(answer.claims) == 1
+
+
+def test_localized_event_uses_the_matched_visual_description_as_label(
+    clip: Clip, tmp_path: Path
+) -> None:
+    sentence = "中央白色方块何时出现和消失？"
+    rig = make_rig(clip, tmp_path, question_text=sentence)
+    answer, _ = _run_coro(rig.locate.run("qa", rig.initial))
+    assert answer.localization and answer.localization.refined
+    assert all(sentence in call.prompt_text for call in rig.vision.calls)
+    assert answer.localization.label == rig.initial.observations[0].text == QUERY
