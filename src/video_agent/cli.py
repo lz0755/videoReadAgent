@@ -649,7 +649,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             return _local_command(args)
         except (VideoAgentError, OSError, ValueError, LookupError, sqlite3.Error) as exc:
             code = exc.code.value if isinstance(exc, VideoAgentError) else "LOCAL_SERVICE_ERROR"
-            print(json.dumps({"error": {"code": code}}), file=sys.stderr)
+            local_error = {"code": code}
+            if args.command == "jobs" and code == ErrorCode.EXTERNAL_RESULT_UNKNOWN:
+                local_error["message"] = (
+                    "The previous request may still incur a charge. Retrying may charge you twice. "
+                    "Use --confirm-external-risk to accept this risk."
+                )
+            print(json.dumps({"error": local_error}), file=sys.stderr)
             return 1
 
     if args.command == "ask":
