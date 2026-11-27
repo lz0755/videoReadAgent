@@ -4,6 +4,7 @@ import hashlib
 import os
 import re
 import tempfile
+import time
 from contextlib import suppress
 from pathlib import Path
 from typing import Literal
@@ -61,7 +62,19 @@ class FileMediaCache:
                 staged = Path(output.name)
                 output.write(hashlib.sha256(bytes.fromhex(key) + payload).digest())
                 output.write(payload)
-            os.replace(staged, destination)
+            # Windows can briefly deny replacement while a reader or another publisher
+            # holds the destination. Keep both complete files until replacement succeeds.
+            deadline = time.monotonic() + 0.5
+            while True:
+                try:
+                    os.replace(staged, destination)
+                    break
+                except PermissionError as exc:
+                    if getattr(exc, "winerror", None) not in (5, 32, 33):
+                        raise
+                    if time.monotonic() >= deadline:
+                        raise
+                    time.sleep(0.01)
         except OSError as exc:
             raise StorageError(
                 ErrorCode.STORAGE_ERROR, "cannot publish local cache record"
