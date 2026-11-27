@@ -59,7 +59,7 @@ class AnswerValidator:
             return
         if q.mode != "event_localization" or not event.refined or answer.status == "not_answerable":
             raise DomainValidationError(ErrorCode.INVALID_CITATION, "unexpected localization")
-        if event.start_bracket.upper_ms > event.end_bracket.lower_ms:
+        if event.start_bracket.upper_ms >= event.end_bracket.lower_ms:
             raise DomainValidationError(ErrorCode.INVALID_TIME_RANGE, "boundary order is uncertain")
         sent = {f.evidence_id: f for f in context.frames}
         for bracket in (event.start_bracket, event.end_bracket):

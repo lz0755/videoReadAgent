@@ -38,7 +38,7 @@ class Controller:
             while True:
                 remaining = guard.remaining_seconds(scope)
                 if any(r.status in {"unknown", "pending"} for r in guard.get_ledger(scope).records):
-                    return state.stop(ErrorCode.EXTERNAL_RESULT_UNKNOWN.value)
+                    return self._stop(state, ErrorCode.EXTERNAL_RESULT_UNKNOWN.value)
                 if state.phase == Phase.TOOLS:
                     for call in state.calls:
                         if (
@@ -63,7 +63,7 @@ class Controller:
                 attempts = _remaining_attempts(account)
                 rounds = (limits.max_rounds or self.executor.config.max_rounds) - used.rounds
                 if min(attempts, rounds) <= 0:
-                    return state.stop(ErrorCode.BUDGET_EXCEEDED.value)
+                    return self._stop(state, ErrorCode.BUDGET_EXCEEDED.value)
                 if min(attempts, rounds) == 1 or used.tool_calls >= (
                     limits.max_tool_calls or self.executor.config.max_tool_calls
                 ):
@@ -87,11 +87,30 @@ class Controller:
                     or decision.action != "call_tools"
                     or not decision.tool_calls
                 ):
-                    return state.stop("Planner did not return a usable final answer.")
+                    return self._stop(state, "Planner did not return a usable final answer.")
                 state.calls = decision.tool_calls
                 state.phase = Phase.TOOLS
         except VideoAgentError as exc:
-            return state.stop(exc.code.value)
+            return self._stop(state, exc.code.value)
+
+    def _stop(self, state: PlannerState, reason: str) -> Answer:
+        answer = state.stop(reason)
+        retained = []
+        for claim in answer.claims:
+            try:
+                self.validate(answer.model_copy(update={"claims": [claim]}), state.evidence)
+            except VideoAgentError:
+                continue
+            retained.append(claim)
+        if len(retained) == len(answer.claims):
+            return answer
+        return answer.model_copy(
+            update={
+                "claims": retained,
+                "status": "partial" if retained else "not_answerable",
+                "gaps": list(dict.fromkeys([reason, ErrorCode.INVALID_CITATION.value])),
+            }
+        )
 
     def _request(
         self, state: PlannerState, account: BudgetAccount, remaining: float
