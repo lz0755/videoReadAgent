@@ -74,7 +74,8 @@ def index(tmp_path: Path) -> Path:
                 add_doc(conn, asset, analysis, seq, "孔径", 3200 + seq)
             conn.execute(
                 "INSERT INTO stage_results(analysis_id,asset_id,stage,item_key,config_hash,"
-                "checksum,status,created_at) VALUES(?,?,'index','all','cfg','sha','committed','now')",
+                "checksum,status,created_at) "
+                "VALUES(?,?,'index','all','cfg','sha','committed','now')",
                 (analysis, asset),
             )
         conn.execute("UPDATE analysis_runs SET index_state='ready',status='partial'")
