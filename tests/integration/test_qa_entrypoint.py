@@ -191,7 +191,8 @@ def test_qa_review_dispatches_real_frames_and_charges_nested_vision(
     assert code == 0 and calls == 2 and result["answer"]["status"] == "answered"
     with closing(connect_sqlite(root / "agent.sqlite3")) as conn:
         rows = conn.execute(
-            "SELECT model_id,parent_tool_call_id,images_sent FROM usage_records "
+            "SELECT model_id,parent_tool_call_id,json_extract(usage_json,'$.images_sent') "
+            "FROM usage_records "
             "WHERE scope_id=? ORDER BY rowid",
             (result["question_id"],),
         ).fetchall()
