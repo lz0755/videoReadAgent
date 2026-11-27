@@ -50,10 +50,12 @@ def _bracket(
         ordered.append((frame, next(iter(labels), "unclear")))
 
     before, after = ("inactive", "active") if start else ("active", "inactive")
+    # An occluded sample cannot erase a reversal between visible states.
+    known = [label for _, label in ordered if label != "unclear"]
+    if any((a, b) == (after, before) for a, b in zip(known, known[1:], strict=False)):
+        return None
     transitions = []
     for (left, a), (right, b) in zip(ordered, ordered[1:], strict=False):
-        if (a, b) == (after, before):
-            return None
         if (a, b) == (before, after):
             transitions.append((left, right))
     if len(transitions) != 1:
@@ -87,7 +89,7 @@ class EventLocalizer:
         exposed = initial
         localization = None
         try:
-            windows = self._windows(initial)
+            label, windows = self._candidate(initial)
             for side, window in zip(("start", "end"), windows, strict=True):
                 result = await self.execute(
                     ToolCallProposal(
@@ -121,7 +123,7 @@ class EventLocalizer:
                 start, end = brackets
                 if start.upper_ms < end.lower_ms:
                     localization = EventLocalization(
-                        label=question.query_text,
+                        label=label,
                         start_bracket=start,
                         end_bracket=end,
                         refined=True,
@@ -148,7 +150,7 @@ class EventLocalizer:
             localization=localization,
         ), exposed
 
-    def _windows(self, initial: ToolResult) -> tuple[TimeRangeMs, TimeRangeMs]:
+    def _candidate(self, initial: ToolResult) -> tuple[str, tuple[TimeRangeMs, TimeRangeMs]]:
         scope = (self.question.asset_id, self.question.analysis_id)
         observed = {
             o.observation_id: o
@@ -161,6 +163,7 @@ class EventLocalizer:
                 hit.source_kind != "observation"
                 or (hit.asset_id, hit.analysis_id) != scope
                 or obs is None
+                or (obs.text, obs.time_range) != (hit.text, hit.time_range)
                 or set(obs.evidence_ids) != set(hit.evidence_ids)
             ):
                 continue
@@ -182,7 +185,7 @@ class EventLocalizer:
             start = TimeRangeMs(start_ms=before, end_ms=first + 1)
             end = TimeRangeMs(start_ms=last, end_ms=after + 1)
             if all(w.end_ms - w.start_ms <= 8000 for w in (start, end)):
-                return start, end
+                return obs.text, (start, end)
         raise DomainValidationError(
             ErrorCode.NO_FRAME_IN_RANGE, "当前粗检索无法用两个八秒回看窗口覆盖事件两侧。"
         )
