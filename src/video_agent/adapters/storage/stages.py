@@ -189,6 +189,13 @@ class StageCache:
             digest = hashlib.sha256(raw).hexdigest()
             aid = self._files.put_bytes(asset, "export", raw, suffix=".json")
             with immediate_transaction(conn):
+                job = conn.execute(
+                    "SELECT cancel_requested,status FROM jobs WHERE kind='analysis' "
+                    "AND analysis_id=? AND asset_id=?",
+                    (analysis, asset),
+                ).fetchone()
+                if job is None or job[0] or job[1] == "cancelled":
+                    raise StorageError(ErrorCode.JOB_CANCELLED, "window publication cancelled")
                 if self._verified_hash(conn, asset, aid, export=True) != digest:
                     raise StorageError(
                         ErrorCode.STORAGE_ERROR, "stage artifact failed verification"

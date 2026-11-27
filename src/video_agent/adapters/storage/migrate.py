@@ -92,6 +92,24 @@ def _execute_statements_in_tx(conn: sqlite3.Connection, sql_text: str) -> None:
         conn.execute(stmt)
 
 
+def verify_current_schema(db: Path) -> None:
+    """Verify service compatibility without taking the worker lock or running DDL."""
+    expected = [(v, n, d) for v, n, _, d in _discover_migrations(_DEFAULT_MIGRATIONS_DIR)]
+    if not db.is_file():
+        raise StorageError(ErrorCode.MIGRATION_ERROR, "initialize the catalog first")
+    from contextlib import closing
+
+    with closing(connect_sqlite(db)) as conn:
+        if (
+            not _has_migrations_table(conn)
+            or conn.execute(
+                "SELECT version,name,checksum FROM schema_migrations ORDER BY version"
+            ).fetchall()
+            != expected
+        ):
+            raise StorageError(ErrorCode.MIGRATION_ERROR, "offline migration or repair required")
+
+
 def run_migrations(
     db_path: Path,
     *,

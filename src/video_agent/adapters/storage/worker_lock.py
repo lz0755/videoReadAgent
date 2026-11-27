@@ -8,6 +8,8 @@ so compute children (FFmpeg/ASR) never inherit the worker lock.
 from __future__ import annotations
 
 import os
+from collections.abc import Iterator
+from contextlib import contextmanager
 from io import TextIOWrapper
 from pathlib import Path
 from types import TracebackType
@@ -15,7 +17,7 @@ from typing import Literal
 
 import portalocker
 
-from video_agent.domain.errors import ErrorCode, WorkerLockError
+from video_agent.domain.errors import ErrorCode, StorageError, VideoAgentError, WorkerLockError
 
 
 class WorkerLock:
@@ -77,3 +79,34 @@ class WorkerLock:
         exc_tb: TracebackType | None,
     ) -> None:
         self.release()
+
+
+def ensure_compute_idle(root: Path) -> None:
+    if (root / "compute-active").exists():
+        raise StorageError(ErrorCode.RESOURCE_BUSY, "previous compute children require inspection")
+
+
+@contextmanager
+def compute_guard(root: Path, identifier: str, *, may_spawn: bool) -> Iterator[None]:
+    """The caller owns worker.lock. A hard exit leaves a durable uncertainty marker."""
+    ensure_compute_idle(root)
+    if not may_spawn:
+        yield
+        return
+    marker = root / "compute-active"
+    with marker.open("x", encoding="utf-8") as stream:
+        stream.write(f"{os.getpid()} {identifier}\n")
+        stream.flush()
+        os.fsync(stream.fileno())
+    try:
+        yield
+    except VideoAgentError as exc:
+        if exc.code != ErrorCode.RESOURCE_BUSY:
+            marker.unlink()
+        raise
+    except Exception:
+        # The supervised use case has unwound and closed its compute children.
+        marker.unlink()
+        raise
+    else:
+        marker.unlink()

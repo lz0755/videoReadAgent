@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from video_agent.adapters.storage.jobs import SQLiteJobs
-from video_agent.adapters.storage.worker_lock import WorkerLock
+from video_agent.adapters.storage.worker_lock import WorkerLock, compute_guard, ensure_compute_idle
 from video_agent.domain.errors import ErrorCode, VideoAgentError
 from video_agent.domain.models import Job
 
@@ -25,7 +25,10 @@ def run_queue(
     if root.resolve() != jobs.db.parent.resolve():
         raise ValueError("database and worker lock must share a data root")
     with WorkerLock(root):
+        jobs.recover()
+        ensure_compute_idle(root)
         while True:
+            jobs.apply_queued_cancellations()
             job = jobs.claim(analysis_seconds, qa_seconds)
             if job is not None:
                 try:
@@ -34,7 +37,10 @@ def run_queue(
                     ) <= datetime.now(UTC):
                         jobs.fail(job, ErrorCode.DEADLINE_EXCEEDED)
                     else:
-                        execute(job)
+                        with compute_guard(
+                            root, job.job_id, may_spawn=jobs.uses_audio_process(job)
+                        ):
+                            execute(job)
                         # A completed use case publishes its own terminal state atomically.
                         jobs.fail(job, ErrorCode.STORAGE_ERROR)
                 except VideoAgentError as exc:

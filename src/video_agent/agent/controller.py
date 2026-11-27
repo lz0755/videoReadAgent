@@ -28,6 +28,7 @@ class Controller:
     prompts: PromptRegistry
     decide: Callable[[PlannerRequest, bool], Awaitable[PlannerResponse]]
     validate: Callable[[Answer, ToolResult], None]
+    acknowledged_attempts: frozenset[str] = frozenset()
 
     async def run(self, job_id: str, initial: ToolResult) -> Answer:
         question = self.executor.service.question
@@ -37,7 +38,11 @@ class Controller:
         try:
             while True:
                 remaining = guard.remaining_seconds(scope)
-                if any(r.status in {"unknown", "pending"} for r in guard.get_ledger(scope).records):
+                if any(
+                    r.status in {"unknown", "pending"}
+                    and r.attempt_id not in self.acknowledged_attempts
+                    for r in guard.get_ledger(scope).records
+                ):
                     return self._stop(state, ErrorCode.EXTERNAL_RESULT_UNKNOWN.value)
                 if state.phase == Phase.TOOLS:
                     for call in state.calls:

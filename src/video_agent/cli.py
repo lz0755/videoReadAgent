@@ -29,7 +29,7 @@ from video_agent.bootstrap import (
     load_app_config,
 )
 from video_agent.domain.config import AppConfig
-from video_agent.domain.errors import VideoAgentError
+from video_agent.domain.errors import VideoAgentError, WorkerLockError
 
 
 @dataclass(frozen=True, slots=True)
@@ -301,7 +301,14 @@ def _build_parser() -> argparse.ArgumentParser:
     questions.add_argument("--text", required=True)
     questions.add_argument("--mode", choices=("qa", "event_localization"), default="qa")
     questions.add_argument("--idempotency-key")
-    for entry in (init, serve, worker, analyses, questions):
+    retry = subparsers.add_parser("jobs").add_subparsers(required=True).add_parser("retry")
+    retry.add_argument("job_id")
+    retry.add_argument(
+        "--confirm-external-risk",
+        action="store_true",
+        help="Acknowledge that the previous request may still incur charges",
+    )
+    for entry in (init, serve, worker, analyses, questions, retry):
         entry.add_argument("--data-root", type=Path, default=Path("data"))
         entry.add_argument("--config", type=Path, default=Path("config/defaults.yaml"))
 
@@ -459,6 +466,67 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _slice_command(args: argparse.Namespace) -> int:
+    run_mode: Literal["offline", "live"] = "live" if args.live else "offline"
+    container = build_slice_container(
+        mode=run_mode,
+        data_root=args.data_root,
+        live_provider=args.provider,
+        config_path=args.config,
+        cloud_egress_authorized=bool(args.cloud_egress_authorized),
+        budget_config_path=args.budget_config,
+        asr_model_path=args.asr_model_path,
+    )
+    asset_id = f"asset_{uuid.uuid4().hex[:10]}"
+    analysis_id = f"an_{uuid.uuid4().hex[:10]}"
+    q_specs = [
+        SliceQuestionSpec(question_id=f"q_{idx:02d}", query_text=q_text)
+        for idx, q_text in enumerate(args.question, start=1)
+    ]
+    coro = run_vertical_slice(
+        str(args.video),
+        asset_id=asset_id,
+        analysis_id=analysis_id,
+        questions=q_specs,
+        media_backend=container.media_backend,
+        transcriber=container.transcriber,
+        vision_provider=container.vision_provider,
+        planner_provider=container.planner_provider,
+        budget_guard=container.budget_guard,
+        prompt_registry=container.prompt_registry,
+        config=container.config,
+        clock=container.clock,
+        provider_mode=container.mode,
+        collect_question_errors=True,
+        sample_interval_ms=args.sample_interval_ms,
+        max_frames=args.max_frames,
+    )
+    with closing(container):
+        result = asyncio.run(coro) if args.live else _run_offline_coro(coro)
+    serialized = _serialize_slice_result(result, q_specs)
+    evidence_manifest = container.save_evidence_manifest(result)
+    serialized["evidence_manifest"] = evidence_manifest
+    if args.json:
+        print(json.dumps(serialized, ensure_ascii=False))
+    else:
+        print(
+            f"video-agent slice [{result.provider_mode}]: asset={result.asset.asset_id} "
+            f"analysis={result.analysis_id} frames={len(result.frames)} "
+            f"audio={result.audio_status}"
+        )
+        print(f"  evidence_manifest={evidence_manifest} (relative to --data-root)")
+        for row in serialized["questions"]:
+            answer = row["answer"]
+            if answer is None:
+                print(f"  [{row['question_id']}] status=failed error={row['error_code']}")
+            else:
+                print(
+                    f"  [{row['question_id']}] status={answer['status']} "
+                    f"claims={len(answer['claims'])} gaps={len(answer['gaps'])}"
+                )
+    return int(bool(result.question_errors))
+
+
 def _local_command(args: argparse.Namespace) -> int:
     from video_agent.adapters.storage.migrate import run_migrations
     from video_agent.application.jobs import AnalysisRequest, QuestionRequest
@@ -509,7 +577,9 @@ def _local_command(args: argparse.Namespace) -> int:
             args.data_root, jobs, execute, analysis_seconds=analysis, qa_seconds=qa, once=args.once
         )
         return 0
-    if args.command == "analyses":
+    if args.command == "jobs":
+        result = jobs.retry(args.job_id, confirmed=args.confirm_external_risk)
+    elif args.command == "analyses":
         result = jobs.submit_analysis(
             args.asset_id,
             AnalysisRequest(profile=args.profile, execution_mode=args.execution_mode),
@@ -530,7 +600,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(list(argv) if argv is not None else None)
 
-    if args.command in {"init", "serve", "worker", "analyses", "questions"}:
+    if args.command in {"init", "serve", "worker", "analyses", "questions", "jobs"}:
         try:
             return _local_command(args)
         except (VideoAgentError, OSError, ValueError, LookupError, sqlite3.Error) as exc:
@@ -620,64 +690,19 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0 if report.ok else 1
 
     if args.command == "slice":
-        run_mode: Literal["offline", "live"] = "live" if args.live else "offline"
-        container = build_slice_container(
-            mode=run_mode,
-            data_root=args.data_root,
-            live_provider=args.provider,
-            config_path=args.config,
-            cloud_egress_authorized=bool(args.cloud_egress_authorized),
-            budget_config_path=args.budget_config,
-            asr_model_path=args.asr_model_path,
-        )
-        asset_id = f"asset_{uuid.uuid4().hex[:10]}"
-        analysis_id = f"an_{uuid.uuid4().hex[:10]}"
-        q_specs = [
-            SliceQuestionSpec(question_id=f"q_{idx:02d}", query_text=q_text)
-            for idx, q_text in enumerate(args.question, start=1)
-        ]
-        coro = run_vertical_slice(
-            str(args.video),
-            asset_id=asset_id,
-            analysis_id=analysis_id,
-            questions=q_specs,
-            media_backend=container.media_backend,
-            transcriber=container.transcriber,
-            vision_provider=container.vision_provider,
-            planner_provider=container.planner_provider,
-            budget_guard=container.budget_guard,
-            prompt_registry=container.prompt_registry,
-            config=container.config,
-            clock=container.clock,
-            provider_mode=container.mode,
-            collect_question_errors=True,
-            sample_interval_ms=args.sample_interval_ms,
-            max_frames=args.max_frames,
-        )
-        with closing(container):
-            result = asyncio.run(coro) if args.live else _run_offline_coro(coro)
-        serialized = _serialize_slice_result(result, q_specs)
-        evidence_manifest = container.save_evidence_manifest(result)
-        serialized["evidence_manifest"] = evidence_manifest
-        if args.json:
-            print(json.dumps(serialized, ensure_ascii=False))
-        else:
-            print(
-                f"video-agent slice [{result.provider_mode}]: asset={result.asset.asset_id} "
-                f"analysis={result.analysis_id} frames={len(result.frames)} "
-                f"audio={result.audio_status}"
-            )
-            print(f"  evidence_manifest={evidence_manifest} (relative to --data-root)")
-            for row in serialized["questions"]:
-                answer = row["answer"]
-                if answer is None:
-                    print(f"  [{row['question_id']}] status=failed error={row['error_code']}")
-                else:
-                    print(
-                        f"  [{row['question_id']}] status={answer['status']} "
-                        f"claims={len(answer['claims'])} gaps={len(answer['gaps'])}"
-                    )
-        return int(bool(result.question_errors))
+        from video_agent.adapters.storage.migrate import run_migrations
+        from video_agent.adapters.storage.worker_lock import WorkerLock, compute_guard
+
+        try:
+            root = args.data_root
+            db = root / "agent.sqlite3"
+            if not db.is_file():
+                run_migrations(db, data_root=root, writers_stopped=True)
+            with WorkerLock(root), compute_guard(root, "direct-slice", may_spawn=True):
+                return _slice_command(args)
+        except WorkerLockError as exc:
+            print(json.dumps({"error": {"code": exc.code.value}}), file=sys.stderr)
+            return 1
 
     return 2
 

@@ -187,11 +187,12 @@ class PyAVMediaBackend:
         *,
         max_long_edge_px: int | None = None,
         register: Callable[[str, str], VideoAsset] | None = None,
+        cancelled: Callable[[], bool] | None = None,
     ) -> None:
         self._artifact_store = artifact_store
         self._max_long_edge_px = max_long_edge_px
         self._register = register
-        self._audio = FFmpegAudioExtractor(artifact_store)
+        self._audio = FFmpegAudioExtractor(artifact_store, cancelled=cancelled)
 
     def probe_video(self, source_path: str, *, asset_id: str) -> VideoAsset:
         if self._register is not None:

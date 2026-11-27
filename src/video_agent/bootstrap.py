@@ -53,12 +53,13 @@ from video_agent.adapters.storage.filesystem import (
 from video_agent.adapters.storage.jobs import SQLiteJobs
 from video_agent.adapters.storage.media_cache import FileMediaCache, model_directory_digest
 from video_agent.adapters.storage.memory_budget import InMemoryBudgetStore
+from video_agent.adapters.storage.migrate import verify_current_schema
 from video_agent.adapters.storage.observations import SQLiteObservations
 from video_agent.adapters.storage.qa import SQLiteQA
 from video_agent.adapters.storage.search import SQLiteSearch
 from video_agent.adapters.storage.search_index import SQLiteSearchIndex
 from video_agent.adapters.storage.stages import StageCache
-from video_agent.adapters.storage.worker_lock import WorkerLock
+from video_agent.adapters.storage.worker_lock import WorkerLock, compute_guard, ensure_compute_idle
 from video_agent.agent.answer_validator import AnswerValidator
 from video_agent.agent.controller import Controller
 from video_agent.agent.executor import ToolExecutor
@@ -331,6 +332,7 @@ def build_slice_container(
     cloud_egress_authorized: bool = False,
     budget_config_path: Path | None = None,
     asr_model_path: Path | None = None,
+    cancelled: Callable[[], bool] | None = None,
     vision_provider: VisionProvider | None = None,
     planner_provider: PlannerProvider | None = None,
     transcriber: Transcriber | None = None,
@@ -405,7 +407,7 @@ def build_slice_container(
 
     cache = FileMediaCache(checked_local_path(data_root / "media-cache"), artifact_store)
     media_backend = CachedMediaBackend(
-        PyAVMediaBackend(artifact_store, register=register),
+        PyAVMediaBackend(artifact_store, register=register, cancelled=cancelled),
         cache,
         frame_profile={
             "processor": "pts-v2",
@@ -466,6 +468,7 @@ def build_slice_container(
                 model_path=asr_model_path,
                 timeout_seconds=config.analysis.deadline_seconds,
                 duration_for_asset=source_store.duration_for_asset,
+                cancelled=cancelled,
             )
             previous_digest: str | None = None
 
@@ -649,8 +652,7 @@ def _verified_detail(config: AppConfig) -> bool:
 def build_jobs(root: Path, config: AppConfig) -> SQLiteJobs:
     root = checked_local_path(root)
     db = checked_local_path(root / "agent.sqlite3")
-    if not db.is_file():
-        raise StorageError(ErrorCode.MIGRATION_ERROR, "initialize the database first")
+    verify_current_schema(db)
     prompts = PromptRegistry(Path(config.prompts.registry_path))
     bundle = prompts.compute_bundle_hash(
         tool_schema={}, output_schema=VisionResponse.model_json_schema()
@@ -704,12 +706,6 @@ async def ask_registered_asset(
     ):
         files = CatalogArtifactStore(data_root)
         asset = _index_asset(db, files, asset_id)
-        config = resources.config
-        if (
-            asset.size_bytes > config.media.max_file_bytes
-            or asset.duration_ms > config.media.max_duration_ms
-        ):
-            raise MediaError(ErrorCode.MEDIA_LIMIT_EXCEEDED, "asset exceeds configured QA bounds")
         question = Question(
             question_id="q_" + uuid.uuid4().hex,
             asset_id=asset_id,
@@ -771,7 +767,15 @@ async def _run_registered_question(
     asset: VideoAsset,
     repository: SQLiteQA,
     job: str,
+    *,
+    explicit_retry: bool = False,
+    queued: bool = False,
 ) -> dict[str, object]:
+    if (
+        asset.size_bytes > resources.config.media.max_file_bytes
+        or asset.duration_ms > resources.config.media.max_duration_ms
+    ):
+        raise MediaError(ErrorCode.MEDIA_LIMIT_EXCEEDED, "asset exceeds configured QA bounds")
     q = repository.question
     approval = resources.budget_guard.run_limits
     config = _bounded_qa(resources.config, approval)
@@ -783,6 +787,11 @@ async def _run_registered_question(
         run_limits=approval,
     )
     guard.ensure_started(q.question_id, "qa", limits=build_budget_limits(config, "qa"))
+    acknowledged = (
+        frozenset(r.attempt_id for r in guard.get_ledger(q.question_id).records)
+        if explicit_retry
+        else frozenset()
+    )
     live = resources.mode == "live"
 
     def authorize() -> None:
@@ -822,13 +831,18 @@ async def _run_registered_question(
             request,
             scope_id=q.question_id,
             operation_key=parent,
+            explicit_retry=explicit_retry,
             parent_tool_call_id=parent,
         )
 
     async def decide(request: PlannerRequest, final: bool) -> PlannerResponse:
         round_number = guard.get_account(q.question_id).consumed.rounds
         return await providers.decide(
-            planner, request, operation_key=f"planner/{round_number}", final=final
+            planner,
+            request,
+            operation_key=f"planner/{round_number}",
+            final=final,
+            explicit_retry=explicit_retry,
         )
 
     prompts = resources.prompt_registry
@@ -861,9 +875,14 @@ async def _run_registered_question(
         config.qa,
     )
     validator = AnswerValidator(q, asset.duration_ms, repository.resolve)
-    controller = Controller(tools, prompts, decide, validator.validate)
+    controller = Controller(tools, prompts, decide, validator.validate, acknowledged)
     localizer = EventLocalizer(q, asset.duration_ms, repository.context, tools.execute)
     answer, hits = await answer_question(job, controller, localizer, validator)
+    if queued and any(
+        r.attempt_id not in acknowledged and r.status in ("unknown", "pending")
+        for r in guard.get_ledger(q.question_id).records
+    ):
+        raise BudgetError(ErrorCode.EXTERNAL_RESULT_UNKNOWN, "external result requires inspection")
     repository.publish(answer, job)
     return {
         "asset_id": q.asset_id,
@@ -892,19 +911,29 @@ async def index_registered_asset(
     explicit_retry: bool = False,
 ) -> dict[str, object]:
     data_root = checked_local_path(data_root)
+    db = data_root / "agent.sqlite3"
     with WorkerLock(data_root):
-        return await _index_locked(
-            data_root=data_root,
-            asset_id=asset_id,
-            analysis_id=analysis_id,
-            profile=profile,
-            mode=mode,
-            config_path=config_path,
-            budget_config_path=budget_config_path,
-            live_provider=live_provider,
-            asr_model_path=asr_model_path,
-            explicit_retry=explicit_retry,
-        )
+        ensure_compute_idle(data_root)
+        verify_current_schema(db)
+        with closing(connect_sqlite(db)) as conn:
+            audio = conn.execute(
+                "SELECT has_audio FROM assets WHERE asset_id=?", (asset_id,)
+            ).fetchone()
+        with compute_guard(
+            data_root, analysis_id or "direct-index", may_spawn=bool(audio and audio[0])
+        ):
+            return await _index_locked(
+                data_root=data_root,
+                asset_id=asset_id,
+                analysis_id=analysis_id,
+                profile=profile,
+                mode=mode,
+                config_path=config_path,
+                budget_config_path=budget_config_path,
+                live_provider=live_provider,
+                asr_model_path=asr_model_path,
+                explicit_retry=explicit_retry,
+            )
 
 
 async def _index_locked(
@@ -919,6 +948,7 @@ async def _index_locked(
     live_provider: Literal["deepseek", "openai"] | None = None,
     asr_model_path: Path | None = None,
     explicit_retry: bool = False,
+    cancelled: Callable[[], bool] | None = None,
 ) -> dict[str, object]:
     data_root = checked_local_path(data_root)
     db = checked_local_path(data_root / "agent.sqlite3")
@@ -930,6 +960,7 @@ async def _index_locked(
         budget_config_path=budget_config_path,
         live_provider=live_provider,
         asr_model_path=asr_model_path,
+        cancelled=cancelled,
     )
     try:
         files = CatalogArtifactStore(data_root)
@@ -1058,6 +1089,7 @@ async def execute_queued_job(
             budget_config_path=budget_config_path,
             asr_model_path=asr_model_path,
             explicit_retry=job.error_code == ErrorCode.EXTERNAL_RESULT_UNKNOWN,
+            cancelled=lambda: jobs.check_computation(job.job_id),
         )
         return
     question = jobs.bound_question(job)
@@ -1071,7 +1103,14 @@ async def execute_queued_job(
         )
     ) as resources:
         await _run_registered_question(
-            resources, jobs.files, jobs.db, asset, SQLiteQA(jobs.db, question), job.job_id
+            resources,
+            jobs.files,
+            jobs.db,
+            asset,
+            SQLiteQA(jobs.db, question),
+            job.job_id,
+            explicit_retry=job.error_code == ErrorCode.EXTERNAL_RESULT_UNKNOWN,
+            queued=True,
         )
 
 

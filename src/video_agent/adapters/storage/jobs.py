@@ -17,6 +17,7 @@ from video_agent.adapters.storage.connection import (
 )
 from video_agent.adapters.storage.filesystem import CatalogArtifactStore
 from video_agent.adapters.storage.qa import resolve_evidence
+from video_agent.adapters.storage.stages import StageCache, invalidate_index
 from video_agent.application.jobs import AnalysisRequest, ExecutionMode, QuestionRequest
 from video_agent.application.media_timeline import build_playback_map
 from video_agent.application.prompt_registry import canonical_json_sha256
@@ -48,6 +49,167 @@ class SQLiteJobs:
         with closing(connect_sqlite(self.db)) as conn:
             conn.row_factory = sqlite3.Row
             yield conn
+
+    def recover(self) -> None:
+        """Called by the owner of worker.lock before its first claim."""
+        now = datetime.now(UTC)
+        with self.connection() as conn, immediate_transaction(conn):
+            rows = conn.execute(
+                "SELECT job_id,analysis_id,kind,cancel_requested,deadline_at_utc "
+                "FROM jobs WHERE status='running' OR (status='queued' AND cancel_requested=1)"
+            ).fetchall()
+            for row in rows:
+                code = None
+                if row["cancel_requested"]:
+                    code = ErrorCode.JOB_CANCELLED
+                elif conn.execute(
+                    "SELECT 1 FROM usage_records WHERE job_id=? AND "
+                    "(status IN ('unknown','pending') OR (?='qa' AND status!='not_sent')) LIMIT 1",
+                    (row["job_id"], row["kind"]),
+                ).fetchone():
+                    code = ErrorCode.EXTERNAL_RESULT_UNKNOWN
+                elif (
+                    row["deadline_at_utc"] and datetime.fromisoformat(row["deadline_at_utc"]) <= now
+                ):
+                    code = ErrorCode.DEADLINE_EXCEEDED
+                state = (
+                    "queued"
+                    if code is None
+                    else ("cancelled" if row["cancel_requested"] else "failed")
+                )
+                conn.execute(
+                    "UPDATE jobs SET status=?,error_code=?,updated_at=? WHERE job_id=?",
+                    (state, code, now.isoformat(), row["job_id"]),
+                )
+                if row["kind"] == "analysis":
+                    conn.execute(
+                        "UPDATE analysis_runs SET status=?, index_state=? WHERE analysis_id=?",
+                        (state, "pending" if state == "queued" else "failed", row["analysis_id"]),
+                    )
+        self._verify_published()
+
+    def _verify_published(self) -> None:
+        stages = StageCache(self.db, self.files)
+        with self.connection() as conn:
+            rows = conn.execute(
+                "SELECT r.analysis_id,a.asset_id,a.source_artifact_id,a.sha256 "
+                "FROM analysis_runs r JOIN assets a USING(asset_id) "
+                "WHERE r.status IN ('succeeded','partial') "
+                "AND r.index_state IN ('ready','partial')"
+            ).fetchall()
+            for analysis, asset, source, digest in rows:
+                windows = conn.execute(
+                    "SELECT item_key,config_hash FROM stage_results WHERE analysis_id=? "
+                    "AND asset_id=? AND stage='observe' AND status='committed'",
+                    (analysis, asset),
+                ).fetchall()
+                summary = conn.execute(
+                    "SELECT artifact_id,checksum FROM stage_results WHERE analysis_id=? "
+                    "AND asset_id=? AND stage='summarize' AND status='committed'",
+                    (analysis, asset),
+                ).fetchone()
+                try:
+                    valid = bool(
+                        windows
+                        and summary
+                        and self.files.verify_hash(source, digest)
+                        and self.files.verify_hash(summary[0], summary[1])
+                        and all(stages.load(asset, analysis, k, v) is not None for k, v in windows)
+                    )
+                except OSError, ValueError, StorageError:
+                    valid = False
+                if not valid:
+                    with immediate_transaction(conn):
+                        invalidate_index(conn, asset, analysis)
+                        conn.execute(
+                            "UPDATE analysis_runs SET status='failed',index_state='failed' "
+                            "WHERE analysis_id=?",
+                            (analysis,),
+                        )
+                        conn.execute(
+                            "UPDATE jobs SET status='failed',error_code=?,updated_at=? "
+                            "WHERE kind='analysis' AND analysis_id=?",
+                            (ErrorCode.STORAGE_ERROR, datetime.now(UTC).isoformat(), analysis),
+                        )
+
+    def apply_queued_cancellations(self) -> None:
+        with self.connection() as conn, immediate_transaction(conn):
+            ids = conn.execute(
+                "UPDATE jobs SET status='cancelled',error_code=?,updated_at=? "
+                "WHERE status='queued' AND cancel_requested=1 RETURNING kind,analysis_id",
+                (ErrorCode.JOB_CANCELLED, datetime.now(UTC).isoformat()),
+            ).fetchall()
+            for kind, analysis in ids:
+                if kind == "analysis":
+                    conn.execute(
+                        "UPDATE analysis_runs SET status='cancelled',index_state='failed' "
+                        "WHERE analysis_id=?",
+                        (analysis,),
+                    )
+
+    def retry(self, job_id: str, *, confirmed: bool) -> dict[str, Any]:
+        with self.connection() as conn, immediate_transaction(conn):
+            row = conn.execute("SELECT * FROM jobs WHERE job_id=?", (job_id,)).fetchone()
+            if row is None:
+                raise ResourceMissing
+            if (
+                row["status"] != "failed"
+                or row["cancel_requested"]
+                or conn.execute(
+                    "SELECT 1 FROM answers WHERE question_id=?", (row["question_id"],)
+                ).fetchone()
+            ):
+                raise StorageError(ErrorCode.IDEMPOTENCY_CONFLICT, "job has no retryable failure")
+            if row["deadline_at_utc"] and datetime.fromisoformat(
+                row["deadline_at_utc"]
+            ) <= datetime.now(UTC):
+                raise StorageError(ErrorCode.DEADLINE_EXCEEDED, "original deadline elapsed")
+            uncertain = row["error_code"] == ErrorCode.EXTERNAL_RESULT_UNKNOWN or bool(
+                conn.execute(
+                    "SELECT 1 FROM usage_records WHERE job_id=? "
+                    "AND status IN ('pending','unknown') LIMIT 1",
+                    (job_id,),
+                ).fetchone()
+            )
+            if uncertain and not confirmed:
+                raise StorageError(ErrorCode.EXTERNAL_RESULT_UNKNOWN, "confirmation required")
+            # Only the explicit command enqueues a job with this error. Claim consumes it once.
+            conn.execute(
+                "UPDATE jobs SET status='queued',error_code=?,updated_at=? WHERE job_id=?",
+                (
+                    ErrorCode.EXTERNAL_RESULT_UNKNOWN if uncertain else None,
+                    datetime.now(UTC).isoformat(),
+                    job_id,
+                ),
+            )
+            if row["kind"] == "analysis":
+                conn.execute(
+                    "UPDATE analysis_runs SET status='queued',index_state='pending' "
+                    "WHERE analysis_id=?",
+                    (row["analysis_id"],),
+                )
+        return self.job(job_id)
+
+    def uses_audio_process(self, job: Job) -> bool:
+        with self.connection() as conn:
+            return job.kind == "analysis" and bool(
+                conn.execute(
+                    "SELECT has_audio FROM assets WHERE asset_id=?", (job.asset_id,)
+                ).fetchone()[0]
+            )
+
+    def check_computation(self, job_id: str) -> bool:
+        with self.connection() as conn:
+            row = conn.execute(
+                "SELECT cancel_requested,deadline_at_utc,status FROM jobs WHERE job_id=?", (job_id,)
+            ).fetchone()
+        if row is None or row["cancel_requested"] or row["status"] != "running":
+            return True
+        if row["deadline_at_utc"] and datetime.fromisoformat(
+            row["deadline_at_utc"]
+        ) <= datetime.now(UTC):
+            raise StorageError(ErrorCode.DEADLINE_EXCEEDED, "computation deadline elapsed")
+        return False
 
     def claim(self, analysis_seconds: float, qa_seconds: float) -> Job | None:
         with self.connection() as conn, immediate_transaction(conn):
