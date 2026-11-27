@@ -1,3 +1,4 @@
+import hashlib
 import json
 from contextlib import closing
 from pathlib import Path
@@ -9,6 +10,7 @@ from tests.integration.test_event_localization import QUERY, Clip, clip, make_ri
 from tests.integration.test_m2_entrypoints import sources
 from video_agent.adapters.llm.fake import FakePlannerProvider, FakeVisionProvider
 from video_agent.adapters.storage.connection import connect_sqlite, create_analysis_with_job
+from video_agent.adapters.storage.filesystem import CatalogArtifactStore
 from video_agent.adapters.storage.qa import SQLiteQA
 from video_agent.adapters.storage.search import SQLiteSearch
 from video_agent.cli import main
@@ -300,3 +302,42 @@ def test_published_event_uses_scoped_sql_neighbors_and_four_actual_boundary_fram
     assert (
         result["usage"]["total_images_sent"] == sum(len(r.images) for r in rig.vision.calls) <= 32
     )
+
+
+@pytest.mark.parametrize("damage", ["remove", "same_size_change"])
+def test_unplayable_cited_frame_cannot_support_a_published_answer(
+    indexed: tuple[Path, str, str], capsys: pytest.CaptureFixture[str], damage: str
+) -> None:
+    root, asset, analysis = indexed
+    db = root / "agent.sqlite3"
+    hit = SQLiteSearch(db).search(asset, analysis, "observed")[0]
+    with closing(connect_sqlite(db)) as conn:
+        artifact_id = conn.execute(
+            "SELECT artifact_id FROM evidence WHERE evidence_id=? AND asset_id=?",
+            (hit.evidence_ids[0], asset),
+        ).fetchone()[0]
+    files = CatalogArtifactStore(root)
+    path = files.resolve_path(artifact_id)
+    original = path.read_bytes()
+    assert original and files.verify_hash(artifact_id, hashlib.sha256(original).hexdigest())
+    if damage == "remove":
+        path.unlink()
+    else:
+        path.write_bytes(bytes([original[0] ^ 1]) + original[1:])
+        assert path.stat().st_size == len(original)
+    code, result = ask(indexed, "observed", capsys)
+    assert code == 0 and result["answer"]["status"] == "not_answerable"
+    assert (
+        result["answer"]["claims"] == [] and ErrorCode.INVALID_CITATION in result["answer"]["gaps"]
+    )
+    with closing(connect_sqlite(db)) as conn:
+        published = conn.execute(
+            "SELECT payload FROM answers WHERE question_id=?", (result["question_id"],)
+        ).fetchone()
+        assert json.loads(published[0]) == result["answer"]
+
+    path.write_bytes(original)
+    unrelated = files.put_bytes(asset, "frame", original, suffix=".jpg")
+    files.resolve_path(unrelated).unlink()
+    code, restored = ask(indexed, "observed", capsys)
+    assert code == 0 and restored["answer"]["status"] == "answered"
