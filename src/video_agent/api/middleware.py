@@ -13,8 +13,6 @@ from video_agent.api.assets import MULTIPART_ALLOWANCE
 
 class LocalRequests:
     def __init__(self, app: ASGIApp, *, token: str, file_limit: int) -> None:
-        if not token or not token.isascii() or any(ord(c) < 33 for c in token):
-            raise ValueError("a local request token is required")
         self.app = app
         self.expected = ("Bearer " + token).encode()
         self.file_limit = file_limit

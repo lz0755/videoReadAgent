@@ -17,6 +17,8 @@ from video_agent.domain.errors import ErrorCode, VideoAgentError
 def create_app(
     data_root: Path, *, token: str, config_path: Path = Path("config/defaults.yaml")
 ) -> FastAPI:
+    if not token or not token.isascii() or not token.isprintable() or " " in token:
+        raise ValueError("a local request token is required")
     if not (data_root / "agent.sqlite3").is_file():
         raise ValueError("initialize the local database before starting the service")
     config = load_app_config(config_path)

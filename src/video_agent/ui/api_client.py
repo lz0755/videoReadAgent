@@ -21,7 +21,11 @@ def identifier(value: str) -> str:
 
 class ReviewClient:
     def __init__(self, url: str, token: str) -> None:
-        parsed = urlsplit(url)
+        try:
+            parsed = urlsplit(url)
+            port = parsed.port
+        except ValueError:
+            raise ReviewError("请配置有效的本机 API 地址。") from None
         if (
             parsed.scheme != "http"
             or parsed.hostname not in {"127.0.0.1", "localhost", "::1"}
@@ -30,7 +34,10 @@ class ReviewClient:
             or parsed.path not in ("", "/")
             or parsed.query
             or parsed.fragment
+            or port == 0
             or not token
+            or not token.isascii()
+            or any(ord(c) < 33 or ord(c) == 127 for c in token)
         ):
             raise ReviewError("请配置本机 API 地址和请求令牌。")
         self.http = httpx.Client(

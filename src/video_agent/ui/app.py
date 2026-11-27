@@ -111,10 +111,13 @@ def _review(client: ReviewClient) -> None:
         if answer := value.get("answer"):
             st.markdown(f"**回答状态** {answer['status']}")
             for claim in answer["claims"]:
-                st.markdown(claim["text"])
+                st.text(claim["text"])
+                st.caption(claim["support_kind"] + " · 引用 " + "、".join(claim["evidence_ids"]))
+                for limitation in claim["limitations"]:
+                    st.text(limitation)
                 evidence.extend(claim["evidence_ids"])
             for gap in answer["gaps"]:
-                st.warning(gap)
+                st.text(gap)
         elif value["status"] in ("failed", "cancelled"):
             job_info = client.request(
                 "GET", "/v1/jobs/" + identifier(st.session_state.qa_job_id)
