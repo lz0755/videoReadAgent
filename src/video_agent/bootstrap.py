@@ -630,6 +630,21 @@ def _verified_detail(config: AppConfig) -> bool:
     )
 
 
+async def ask_registered_asset(
+    *,
+    data_root: Path,
+    asset_id: str,
+    analysis_id: str,
+    query: str,
+    question_mode: Literal["qa", "event_localization"] = "qa",
+    mode: Literal["offline", "live"],
+    config_path: Path,
+    budget_config_path: Path | None = None,
+    live_provider: Literal["deepseek", "openai"] | None = None,
+) -> dict[str, object]:
+    raise NotImplementedError
+
+
 async def index_registered_asset(
     *,
     data_root: Path,
