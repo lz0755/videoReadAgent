@@ -4,7 +4,7 @@ import json
 import sqlite3
 from collections.abc import Callable, Iterator
 from contextlib import closing, contextmanager
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, Literal
 from uuid import uuid4
@@ -22,7 +22,7 @@ from video_agent.application.media_timeline import build_playback_map
 from video_agent.application.prompt_registry import canonical_json_sha256
 from video_agent.application.sampling import SceneProfile
 from video_agent.domain.errors import ErrorCode, StorageError
-from video_agent.domain.models import Answer, FrameEvidence, UsageLedger, VideoAsset
+from video_agent.domain.models import Answer, FrameEvidence, Job, Question, UsageLedger, VideoAsset
 
 
 class ResourceMissing(LookupError):
@@ -48,6 +48,84 @@ class SQLiteJobs:
         with closing(connect_sqlite(self.db)) as conn:
             conn.row_factory = sqlite3.Row
             yield conn
+
+    def claim(self, analysis_seconds: float, qa_seconds: float) -> Job | None:
+        with self.connection() as conn, immediate_transaction(conn):
+            row = conn.execute(
+                "SELECT * FROM jobs WHERE status='queued' AND cancel_requested=0 "
+                "ORDER BY created_at,rowid LIMIT 1"
+            ).fetchone()
+            if row is None:
+                return None
+            now = datetime.now(UTC)
+            seconds = qa_seconds if row["kind"] == "qa" else analysis_seconds
+            data = dict(
+                conn.execute(
+                    "UPDATE jobs SET status='running',attempt_no=attempt_no+1,"
+                    "started_at_utc=coalesce(started_at_utc,?),"
+                    "deadline_at_utc=coalesce(deadline_at_utc,?),updated_at=?,error_code=NULL "
+                    "WHERE job_id=? AND status='queued' RETURNING *",
+                    (
+                        now.isoformat(),
+                        (now + timedelta(seconds=seconds)).isoformat(),
+                        now.isoformat(),
+                        row["job_id"],
+                    ),
+                ).fetchone()
+            )
+            if row["kind"] == "analysis":
+                conn.execute(
+                    "UPDATE analysis_runs SET status='running' WHERE analysis_id=?",
+                    (row["analysis_id"],),
+                )
+            data["cancel_requested"] = bool(data["cancel_requested"])
+            data["error_code"] = row["error_code"]
+            return Job.model_validate({k: v for k, v in data.items() if k in Job.model_fields})
+
+    def fail(self, job: Job, code: ErrorCode) -> None:
+        with self.connection() as conn, immediate_transaction(conn):
+            row = conn.execute(
+                "SELECT cancel_requested FROM jobs WHERE job_id=? AND status='running'",
+                (job.job_id,),
+            ).fetchone()
+            if row is None:
+                return
+            if row[0]:
+                code = ErrorCode.JOB_CANCELLED
+            status = "cancelled" if code == ErrorCode.JOB_CANCELLED else "failed"
+            conn.execute(
+                "UPDATE jobs SET status=?,error_code=?,updated_at=? WHERE job_id=?",
+                (status, code.value, datetime.now(UTC).isoformat(), job.job_id),
+            )
+            if job.kind == "analysis":
+                conn.execute(
+                    "UPDATE analysis_runs SET status=?,index_state='failed' WHERE analysis_id=?",
+                    (status, job.analysis_id),
+                )
+
+    def parameters(self, job: Job) -> tuple[SceneProfile, ExecutionMode]:
+        with self.connection() as conn:
+            fingerprint, bundle = conn.execute(
+                "SELECT config_hash,prompt_bundle_hash "
+                "FROM analysis_runs WHERE analysis_id=? AND asset_id=?",
+                (job.analysis_id, job.asset_id),
+            ).fetchone()
+        for options, value in self.identities.items():
+            if fingerprint == value and bundle == self.bundle:
+                return options
+        raise StorageError(ErrorCode.IDEMPOTENCY_CONFLICT, "queued analysis configuration changed")
+
+    def bound_question(self, job: Job) -> Question:
+        with self.connection() as conn:
+            row = conn.execute(
+                "SELECT question_id,asset_id,analysis_id,query_text,mode,"
+                "created_at AS created_at_utc FROM questions WHERE question_id=? AND analysis_id=? "
+                "AND asset_id=?",
+                (job.question_id, job.analysis_id, job.asset_id),
+            ).fetchone()
+        if row is None:
+            raise ResourceMissing
+        return Question.model_validate(dict(row))
 
     def submit_analysis(
         self, asset: str, request: AnalysisRequest, key: str | None
@@ -136,7 +214,10 @@ class SQLiteJobs:
         return {
             **dict(row),
             "cancel_requested": bool(row["cancel_requested"]),
-            "progress": {"committed_stages": stages, "model_attempts": attempts},
+            "progress": {
+                "committed_stages": stages if row["kind"] == "analysis" else {},
+                "model_attempts": attempts,
+            },
         }
 
     def cancel(self, job: str) -> dict[str, Any]:
@@ -229,7 +310,7 @@ class SQLiteJobs:
             raise ResourceMissing
         asset = VideoAsset.model_validate(
             {
-                **{k: row[k] for k in row.keys() if k in VideoAsset.model_fields},
+                **{k: v for k, v in dict(row).items() if k in VideoAsset.model_fields},
                 "has_audio": bool(row["has_audio"]),
             }
         )

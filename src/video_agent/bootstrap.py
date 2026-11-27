@@ -53,7 +53,6 @@ from video_agent.adapters.storage.filesystem import (
 from video_agent.adapters.storage.jobs import SQLiteJobs
 from video_agent.adapters.storage.media_cache import FileMediaCache, model_directory_digest
 from video_agent.adapters.storage.memory_budget import InMemoryBudgetStore
-from video_agent.adapters.storage.migrate import run_migrations
 from video_agent.adapters.storage.observations import SQLiteObservations
 from video_agent.adapters.storage.qa import SQLiteQA
 from video_agent.adapters.storage.search import SQLiteSearch
@@ -90,7 +89,7 @@ from video_agent.domain.errors import (
     StorageError,
     VideoAgentError,
 )
-from video_agent.domain.models import FrameEvidence, Question, RegionId, VideoAsset
+from video_agent.domain.models import FrameEvidence, Job, Question, RegionId, VideoAsset
 from video_agent.domain.policies import build_budget_limits, check_cloud_egress_allowed
 from video_agent.domain.ports import (
     Clock,
@@ -691,8 +690,6 @@ async def ask_registered_asset(
         raise StorageError(
             ErrorCode.INDEX_NOT_READY, "registered asset and published index required"
         )
-    # The migration runner takes the same writer lock; finish upgrades before acquiring it for QA.
-    run_migrations(db, data_root=data_root, writers_stopped=True)
     with (
         WorkerLock(data_root),
         closing(
@@ -895,120 +892,195 @@ async def index_registered_asset(
     explicit_retry: bool = False,
 ) -> dict[str, object]:
     data_root = checked_local_path(data_root)
-    db = checked_local_path(data_root / "agent.sqlite3")
-    analysis = analysis_id or "an_" + uuid.uuid4().hex
     with WorkerLock(data_root):
-        resources = build_slice_container(
-            mode=mode,
+        return await _index_locked(
             data_root=data_root,
+            asset_id=asset_id,
+            analysis_id=analysis_id,
+            profile=profile,
+            mode=mode,
             config_path=config_path,
             budget_config_path=budget_config_path,
             live_provider=live_provider,
             asr_model_path=asr_model_path,
+            explicit_retry=explicit_retry,
+        )
+
+
+async def _index_locked(
+    *,
+    data_root: Path,
+    asset_id: str,
+    analysis_id: str | None,
+    profile: SceneProfile,
+    mode: Literal["offline", "live"],
+    config_path: Path,
+    budget_config_path: Path | None = None,
+    live_provider: Literal["deepseek", "openai"] | None = None,
+    asr_model_path: Path | None = None,
+    explicit_retry: bool = False,
+) -> dict[str, object]:
+    data_root = checked_local_path(data_root)
+    db = checked_local_path(data_root / "agent.sqlite3")
+    analysis = analysis_id or "an_" + uuid.uuid4().hex
+    resources = build_slice_container(
+        mode=mode,
+        data_root=data_root,
+        config_path=config_path,
+        budget_config_path=budget_config_path,
+        live_provider=live_provider,
+        asr_model_path=asr_model_path,
+    )
+    try:
+        files = CatalogArtifactStore(data_root)
+        asset = _index_asset(db, files, asset_id)
+        config = resources.config
+        if (
+            asset.duration_ms > config.media.max_duration_ms
+            or asset.size_bytes > config.media.max_file_bytes
+        ):
+            raise MediaError(ErrorCode.MEDIA_LIMIT_EXCEEDED, "asset exceeds configured P0 bounds")
+        port = (
+            _live_vision(config, files)
+            if mode == "live"
+            else FakeVisionProvider(duration_ms=asset.duration_ms)
+        )
+        provider = StrictVisionProvider(port)
+        guard = BudgetGuard(
+            store=SQLiteBudgetStore(db),
+            clock=resources.clock,
+            config=config,
+            prices=resources.prices,
+            run_limits=resources.budget_guard.run_limits,
+        )
+
+        def authorize() -> None:
+            if mode == "live":
+                check_cloud_egress_allowed(
+                    cloud_upload_enabled=budget_config_path is not None,
+                    has_credential=bool(os.environ.get(config.provider.api_key_env, "").strip()),
+                )
+
+        executor = ProviderExecutor(guard, authorize=authorize)
+        images = CatalogImages(db, files)
+        cache = StageCache(db, files)
+        high = mode == "offline" or _verified_detail(config)
+
+        def prepare(
+            frame: FrameEvidence, scene: SceneProfile
+        ) -> tuple[FrameEvidence, ImageInput, str]:
+            value = images.prepare_frame(
+                frame, scene, "full", verified_high_detail=high and scene == "software_tutorial"
+            )
+            return value.frame, value.image, value.sha256
+
+        async def send(req: VisionRequest, operation: str) -> VisionResponse:
+            check_images(images, req, max_images=config.analysis.max_images_per_request)
+            return await executor.observe(
+                provider,
+                req,
+                scope_id=analysis,
+                operation_key=operation,
+                explicit_retry=explicit_retry,
+            )
+
+        pipeline = IndexPipeline(
+            config,
+            guard,
+            resources.media_backend,
+            resources.transcriber,
+            resources.prompt_registry,
+            cache,
+            SQLiteSearchIndex(db, cache),
+            prepare,
+            send,
+            cache.admit,
+            cache.operation_key,
+            port.provider_name,
+            port.model_id,
+            port.model_id,
+            resources.mode,
+            high,
+        )
+        bundle = resources.prompt_registry.compute_bundle_hash(
+            tool_schema={}, output_schema=VisionResponse.model_json_schema()
+        )
+        config_hash = index_fingerprint(config, profile, mode, port.model_id, high)
+        job = _bind_index_job(
+            db,
+            asset,
+            analysis,
+            config_hash,
+            bundle,
+            resume=analysis_id is not None,
+            guard=guard,
         )
         try:
-            files = CatalogArtifactStore(data_root)
-            asset = _index_asset(db, files, asset_id)
-            config = resources.config
-            if (
-                asset.duration_ms > config.media.max_duration_ms
-                or asset.size_bytes > config.media.max_file_bytes
-            ):
-                raise MediaError(
-                    ErrorCode.MEDIA_LIMIT_EXCEEDED, "asset exceeds configured P0 bounds"
+            return await pipeline.run(asset, analysis, job, profile)
+        except Exception as exc:
+            code = exc.code if isinstance(exc, VideoAgentError) else ErrorCode.STORAGE_ERROR
+            with closing(connect_sqlite(db)) as conn, immediate_transaction(conn):
+                status = "cancelled" if code == ErrorCode.JOB_CANCELLED else "failed"
+                conn.execute(
+                    "UPDATE analysis_runs SET status=?,index_state='failed' WHERE analysis_id=?",
+                    (status, analysis),
                 )
-            port = (
-                _live_vision(config, files)
-                if mode == "live"
-                else FakeVisionProvider(duration_ms=asset.duration_ms)
-            )
-            provider = StrictVisionProvider(port)
-            guard = BudgetGuard(
-                store=SQLiteBudgetStore(db),
-                clock=resources.clock,
-                config=config,
-                prices=resources.prices,
-                run_limits=resources.budget_guard.run_limits,
-            )
-
-            def authorize() -> None:
-                if mode == "live":
-                    check_cloud_egress_allowed(
-                        cloud_upload_enabled=budget_config_path is not None,
-                        has_credential=bool(
-                            os.environ.get(config.provider.api_key_env, "").strip()
-                        ),
-                    )
-
-            executor = ProviderExecutor(guard, authorize=authorize)
-            images = CatalogImages(db, files)
-            cache = StageCache(db, files)
-            high = mode == "offline" or _verified_detail(config)
-
-            def prepare(
-                frame: FrameEvidence, scene: SceneProfile
-            ) -> tuple[FrameEvidence, ImageInput, str]:
-                value = images.prepare_frame(
-                    frame, scene, "full", verified_high_detail=high and scene == "software_tutorial"
+                conn.execute(
+                    "UPDATE jobs SET status=?,error_code=?,updated_at=? WHERE job_id=?",
+                    (status, code.value, datetime.now(UTC).isoformat(), job),
                 )
-                return value.frame, value.image, value.sha256
+            raise
+    finally:
+        resources.close()
 
-            async def send(req: VisionRequest, operation: str) -> VisionResponse:
-                check_images(images, req, max_images=config.analysis.max_images_per_request)
-                return await executor.observe(
-                    provider,
-                    req,
-                    scope_id=analysis,
-                    operation_key=operation,
-                    explicit_retry=explicit_retry,
-                )
 
-            pipeline = IndexPipeline(
-                config,
-                guard,
-                resources.media_backend,
-                resources.transcriber,
-                resources.prompt_registry,
-                cache,
-                SQLiteSearchIndex(db, cache),
-                prepare,
-                send,
-                cache.admit,
-                cache.operation_key,
-                port.provider_name,
-                port.model_id,
-                port.model_id,
-                resources.mode,
-                high,
-            )
-            bundle = resources.prompt_registry.compute_bundle_hash(
-                tool_schema={}, output_schema=VisionResponse.model_json_schema()
-            )
-            config_hash = index_fingerprint(config, profile, mode, port.model_id, high)
-            job = _bind_index_job(
-                db,
-                asset,
-                analysis,
-                config_hash,
-                bundle,
-                resume=analysis_id is not None,
-                guard=guard,
-            )
-            try:
-                return await pipeline.run(asset, analysis, job, profile)
-            except Exception as exc:
-                code = exc.code if isinstance(exc, VideoAgentError) else ErrorCode.STORAGE_ERROR
-                with closing(connect_sqlite(db)) as conn, immediate_transaction(conn):
-                    status = "cancelled" if code == ErrorCode.JOB_CANCELLED else "failed"
-                    conn.execute(
-                        "UPDATE analysis_runs SET status=?,index_state='failed' "
-                        "WHERE analysis_id=?",
-                        (status, analysis),
-                    )
-                    conn.execute(
-                        "UPDATE jobs SET status=?,error_code=?,updated_at=? WHERE job_id=?",
-                        (status, code.value, datetime.now(UTC).isoformat(), job),
-                    )
-                raise
-        finally:
-            resources.close()
+async def execute_queued_job(
+    jobs: SQLiteJobs,
+    job: Job,
+    *,
+    mode: ExecutionMode,
+    config_path: Path,
+    budget_config_path: Path | None,
+    asr_model_path: Path | None,
+) -> None:
+    root = jobs.db.parent
+    profile, submitted_mode = jobs.parameters(job)
+    if submitted_mode != mode:
+        raise StorageError(ErrorCode.CAPABILITY_MISMATCH, "worker mode differs from submission")
+    if job.kind == "analysis":
+        await _index_locked(
+            data_root=root,
+            asset_id=job.asset_id,
+            analysis_id=job.analysis_id,
+            profile=profile,
+            mode=mode,
+            config_path=config_path,
+            budget_config_path=budget_config_path,
+            asr_model_path=asr_model_path,
+            explicit_retry=job.error_code == ErrorCode.EXTERNAL_RESULT_UNKNOWN,
+        )
+        return
+    question = jobs.bound_question(job)
+    asset = _index_asset(jobs.db, jobs.files, job.asset_id)
+    with closing(
+        build_slice_container(
+            mode=mode,
+            data_root=root,
+            config_path=config_path,
+            budget_config_path=budget_config_path,
+        )
+    ) as resources:
+        await _run_registered_question(
+            resources, jobs.files, jobs.db, asset, SQLiteQA(jobs.db, question), job.job_id
+        )
+
+
+def worker_deadlines(config: AppConfig, approval_path: Path | None) -> tuple[float, float]:
+    cap = math.inf
+    if approval_path is not None:
+        _, limits = _load_slice_approval(approval_path)
+        if limits is not None and limits.deadline_seconds is not None:
+            cap = limits.deadline_seconds
+    return min(cap, config.analysis.deadline_seconds, 3600), min(
+        cap, config.qa.deadline_seconds, 180
+    )

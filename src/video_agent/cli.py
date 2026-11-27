@@ -278,6 +278,33 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
+    init = subparsers.add_parser("init", help="Initialize or migrate after stopping all writers")
+    init.add_argument("--writers-stopped", action="store_true", required=True)
+    serve = subparsers.add_parser("serve", help="Start the authenticated loopback API")
+    serve.add_argument("--port", type=int, default=8000)
+    worker = subparsers.add_parser("worker", help="Consume the local queue under the OS lock")
+    worker.add_argument("--once", action="store_true")
+    policy = worker.add_mutually_exclusive_group(required=True)
+    policy.add_argument("--offline", action="store_true")
+    policy.add_argument("--live", action="store_true")
+    worker.add_argument("--budget-config", type=Path)
+    worker.add_argument("--asr-model-path", type=Path)
+    analyses = subparsers.add_parser("analyses").add_subparsers(required=True).add_parser("create")
+    analyses.add_argument("--asset-id", required=True)
+    analyses.add_argument("--profile", choices=("software_tutorial", "overview"), required=True)
+    analyses.add_argument("--execution-mode", choices=("offline", "live"), default="offline")
+    analyses.add_argument("--idempotency-key")
+    questions = (
+        subparsers.add_parser("questions").add_subparsers(required=True).add_parser("create")
+    )
+    questions.add_argument("--analysis-id", required=True)
+    questions.add_argument("--text", required=True)
+    questions.add_argument("--mode", choices=("qa", "event_localization"), default="qa")
+    questions.add_argument("--idempotency-key")
+    for entry in (init, serve, worker, analyses, questions):
+        entry.add_argument("--data-root", type=Path, default=Path("data"))
+        entry.add_argument("--config", type=Path, default=Path("config/defaults.yaml"))
+
     index = subparsers.add_parser(
         "index", help="Build or reopen a registered asset's evidence index"
     )
@@ -432,10 +459,84 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _local_command(args: argparse.Namespace) -> int:
+    from video_agent.adapters.storage.migrate import run_migrations
+    from video_agent.application.jobs import AnalysisRequest, QuestionRequest
+    from video_agent.bootstrap import build_jobs, execute_queued_job, worker_deadlines
+    from video_agent.domain.models import Job
+    from video_agent.worker import run_queue
+
+    if args.command == "init":
+        versions = run_migrations(
+            args.data_root / "agent.sqlite3",
+            data_root=args.data_root,
+            writers_stopped=args.writers_stopped,
+        )
+        print(json.dumps({"applied": versions}))
+        return 0
+    if args.command == "serve":
+        import uvicorn
+
+        from video_agent.api.app import create_app
+
+        app = create_app(
+            args.data_root, token=os.environ.get("VIDEO_AGENT_TOKEN", ""), config_path=args.config
+        )
+        uvicorn.run(app, host="127.0.0.1", port=args.port, access_log=False, proxy_headers=False)
+        return 0
+    config = load_app_config(args.config)
+    jobs = build_jobs(args.data_root, config)
+    if args.command == "worker":
+        if args.live and args.budget_config is None:
+            raise ValueError("live worker requires a budget approval")
+
+        def execute(job: Job) -> None:
+            work = execute_queued_job(
+                jobs,
+                job,
+                mode="live" if args.live else "offline",
+                config_path=args.config,
+                budget_config_path=args.budget_config,
+                asr_model_path=args.asr_model_path,
+            )
+            if args.live:
+                asyncio.run(work)
+            else:
+                _run_offline_coro(work)
+
+        analysis, qa = worker_deadlines(config, args.budget_config)
+        run_queue(
+            args.data_root, jobs, execute, analysis_seconds=analysis, qa_seconds=qa, once=args.once
+        )
+        return 0
+    if args.command == "analyses":
+        result = jobs.submit_analysis(
+            args.asset_id,
+            AnalysisRequest(profile=args.profile, execution_mode=args.execution_mode),
+            args.idempotency_key,
+        )
+    else:
+        result = jobs.submit_question(
+            args.analysis_id,
+            QuestionRequest(query_text=args.text, mode=args.mode),
+            args.idempotency_key,
+        )
+    print(json.dumps(result, ensure_ascii=False))
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """CLI entrypoint."""
     parser = _build_parser()
     args = parser.parse_args(list(argv) if argv is not None else None)
+
+    if args.command in {"init", "serve", "worker", "analyses", "questions"}:
+        try:
+            return _local_command(args)
+        except (VideoAgentError, OSError, ValueError, LookupError, sqlite3.Error) as exc:
+            code = exc.code.value if isinstance(exc, VideoAgentError) else "LOCAL_SERVICE_ERROR"
+            print(json.dumps({"error": {"code": code}}), file=sys.stderr)
+            return 1
 
     if args.command == "ask":
         try:
