@@ -82,7 +82,9 @@ def test_review_page_uses_real_api_and_preview_fallback(
     page.run()
     assert not page.exception and not page.error
     assert page.session_state["question_id"]
-    visible = " ".join(c.value for c in [*page.markdown, *page.caption, *page.info, *page.warning])
+    visible = " ".join(
+        c.value for c in [*page.markdown, *page.caption, *page.info, *page.warning, *page.text]
+    )
     with httpx.Client(
         base_url=api_url, headers={"Authorization": "Bearer " + TOKEN}, trust_env=False
     ) as http:
@@ -91,4 +93,20 @@ def test_review_page_uses_real_api_and_preview_fallback(
     assert any(
         line in visible for line in [*answer["gaps"], *(c["text"] for c in answer["claims"])]
     )
+    plain = "\n".join(c.value for c in page.text)
+    assert all(line in plain for line in [*answer["gaps"], *(c["text"] for c in answer["claims"])])
     assert TOKEN not in visible and str(tmp_path) not in visible
+
+
+@pytest.mark.parametrize(
+    ("url", "token"),
+    [("http://127.0.0.1:invalid_port", "private-token"), ("http://127.0.0.1:8000", "私密令牌")],
+)
+def test_configuration_errors_are_safe_to_display(
+    monkeypatch: pytest.MonkeyPatch, url: str, token: str
+) -> None:
+    monkeypatch.setenv("VIDEO_AGENT_API_URL", url)
+    monkeypatch.setenv("VIDEO_AGENT_TOKEN", token)
+    page = AppTest.from_file(str(Path("src/video_agent/ui/app.py").resolve())).run()
+    assert not page.exception and page.error
+    assert all(value not in page.error[0].value for value in (url, token, str(Path.cwd())))
