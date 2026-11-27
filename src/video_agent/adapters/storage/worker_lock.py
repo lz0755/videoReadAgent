@@ -11,6 +11,7 @@ import os
 from io import TextIOWrapper
 from pathlib import Path
 from types import TracebackType
+from typing import Literal
 
 import portalocker
 
@@ -20,9 +21,11 @@ from video_agent.domain.errors import ErrorCode, WorkerLockError
 class WorkerLock:
     """Exclusive non-blocking OS file lock on data_root/worker.lock."""
 
-    def __init__(self, data_root: Path) -> None:
+    def __init__(
+        self, data_root: Path, *, filename: Literal["worker.lock", "import.lock"] = "worker.lock"
+    ) -> None:
         self.data_root = data_root
-        self.lock_path = data_root / "worker.lock"
+        self.lock_path = data_root / filename
         self._handle: TextIOWrapper | None = None
 
     def acquire(self) -> None:

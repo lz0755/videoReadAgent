@@ -10,9 +10,10 @@ import sqlite3
 import stat
 import uuid
 from collections.abc import Callable, Iterator
-from contextlib import closing, contextmanager
+from contextlib import closing, contextmanager, nullcontext
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import BinaryIO
 
 from video_agent.adapters.media.thin_media import LocalArtifactStore
 from video_agent.adapters.storage.connection import connect_sqlite, immediate_transaction
@@ -67,12 +68,17 @@ class ManagedSourceStore:
             if used + additional_bytes > self.quota_bytes:
                 raise MediaError(ErrorCode.MEDIA_LIMIT_EXCEEDED, "managed disk quota exceeded")
 
-    def _copy(self, source: Path, dest: Path, initial: os.stat_result) -> StagedSource:
+    def _copy(self, source: Path | BinaryIO, dest: Path, initial: os.stat_result) -> StagedSource:
         digest = hashlib.sha256()
         total = 0
         flags = os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_NOFOLLOW", 0)
         flags |= getattr(os, "O_NONBLOCK", 0)
-        with os.fdopen(os.open(source, flags), "rb") as reader, dest.open("xb") as writer:
+        opened = (
+            os.fdopen(os.open(source, flags), "rb")
+            if isinstance(source, Path)
+            else nullcontext(source)
+        )
+        with opened as reader, dest.open("xb") as writer:
             if _identity(os.fstat(reader.fileno())) != _identity(initial):
                 raise MediaError(ErrorCode.CORRUPT_MEDIA, "source changed before copying")
             while chunk := reader.read(self.chunk_bytes):
@@ -86,7 +92,10 @@ class ManagedSourceStore:
             if (
                 total != initial.st_size
                 or _identity(os.fstat(reader.fileno())) != _identity(initial)
-                or _identity(checked_local_path(source).stat()) != _identity(initial)
+                or (
+                    isinstance(source, Path)
+                    and _identity(checked_local_path(source).stat()) != _identity(initial)
+                )
             ):
                 raise MediaError(ErrorCode.CORRUPT_MEDIA, "source changed during import")
             writer.flush()
@@ -94,22 +103,23 @@ class ManagedSourceStore:
         return StagedSource(dest, "art_source_video_" + uuid.uuid4().hex, digest.hexdigest(), total)
 
     @contextmanager
-    def stage(self, path: Path, asset_id: str) -> Iterator[StagedSource]:
+    def stage(self, path: Path | BinaryIO, asset_id: str) -> Iterator[StagedSource]:
         if not re.fullmatch(r"[A-Za-z0-9_-]{1,128}", asset_id):
             raise StorageError(ErrorCode.STORAGE_ERROR, "invalid managed asset identifier")
         try:
-            source = checked_local_path(path)
-            original = source.stat()
+            source = checked_local_path(path) if isinstance(path, Path) else path
+            original = source.stat() if isinstance(source, Path) else os.fstat(source.fileno())
             if not stat.S_ISREG(original.st_mode) or not original.st_size:
                 raise MediaError(ErrorCode.CORRUPT_MEDIA, "expected a nonempty regular file")
             if original.st_size > self.max_bytes:
                 raise MediaError(ErrorCode.MEDIA_LIMIT_EXCEEDED, "video exceeds import size limit")
             self.root.mkdir(parents=True, exist_ok=True)
             checked_local_path(self.root / "worker.lock")
+            checked_local_path(self.root / "import.lock")
             checked_local_path(self.artifacts / asset_id)
             if not checked_local_path(self.db_path).exists():
                 run_migrations(self.db_path, data_root=self.root, writers_stopped=True)
-            with WorkerLock(self.root):
+            with WorkerLock(self.root, filename="import.lock"):
                 self.artifacts.mkdir(exist_ok=True)
                 with closing(connect_sqlite(self.db_path)) as conn:
                     if conn.execute(
