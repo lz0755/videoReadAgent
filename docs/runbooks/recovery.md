@@ -104,3 +104,11 @@ with WorkerLock(root):
 随后启动单个 Worker，通过原作业 ID 回查。人工清除计算标记只表示设备可再使用，已有取消意图、未知外部费用和截止时间继续生效。
 
 自动演练在临时数据目录中运行，涵盖父进程在阶段提交前后退出、子进程仍存活、发送后取消、重启时遇到未知费用、已引用帧丢失。复验命令和实际平台结果见工程交接。[M5 验收记录](../handoff/PR-M5.md)
+
+M6 复验可在空目录安装发布包后执行下列命令。两个真实进程竞争同一目录锁，验证阶段提交前后中断，并核对未知外部结果和原截止时间。
+
+```powershell
+uv run --no-sync pytest -q tests/integration/test_job_recovery.py tests/integration/test_worker_lock.py tests/integration/test_uncommitted_attempt.py tests/integration/test_index_resume.py --disable-socket --allow-unix-socket
+```
+
+正式评测中断时保留整场运行目录和 SQLite 账本。逐题登记的 `running` 或 `not_run` 状态供验收者核对，已有输出目录会拒绝再次启动。数据保留与删除步骤见[本地发布验证与数据管理](security.md)。

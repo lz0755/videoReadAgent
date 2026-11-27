@@ -6,9 +6,10 @@ import argparse
 import hashlib
 import json
 import re
+from collections import Counter
 from dataclasses import dataclass
-from pathlib import Path
-from typing import Any, TypeGuard
+from pathlib import Path, PureWindowsPath
+from typing import Any, Literal, TypeGuard
 
 D0_EXPECTED_VIDEO_COUNT: int = 6
 D0_EXPECTED_QUESTIONS_PER_VIDEO: int = 4
@@ -31,6 +32,29 @@ REQUIRED_AUTH_FIELDS: tuple[str, ...] = (
 
 class DatasetManifestError(ValueError):
     """Raised when D0 manifest or annotations violate M0-A2 invariants."""
+
+
+def validate_split_groups(videos: list[dict[str, Any]]) -> None:
+    sides: dict[tuple[str, str], bool] = {}
+    ids: set[str] = set()
+    hashes: set[str] = set()
+    for video in videos:
+        vid, digest = video["artifact_id"], video["sha256"]
+        if vid in ids or digest in hashes:
+            raise DatasetManifestError("duplicate_video_or_hash")
+        ids.add(vid)
+        hashes.add(digest)
+        if video["split"] not in {"m0_dev", "d1_dev_extra", "m6_holdout"}:
+            raise DatasetManifestError("invalid_split")
+        heldout = video["split"] == "m6_holdout"
+        for key in ("source_group_id", "original_id", "series", "related"):
+            if key in {"series", "related"} and key not in video:
+                continue  # D1 stores these two dimensions in the hash-bound private packet.
+            value = video[key]
+            if not isinstance(value, str) or not value.strip():
+                raise DatasetManifestError("empty_split_group")
+            if sides.setdefault((key, value.strip().casefold()), heldout) != heldout:
+                raise DatasetManifestError("source_group_crosses_split")
 
 
 @dataclass(frozen=True)
@@ -378,6 +402,161 @@ def validate_dev_seed_dataset(
         benchmarks=benchmarks,
         verified_on_disk_files=verified_on_disk,
     )
+
+
+# D1 release identities, from PR-D1 and its independent review receipt. Paths may
+# move between machines. An acceptance run always checks the original bytes.
+M6_MANIFESTS = Path(__file__).resolve().parent / "manifests"
+D1_RECEIPT_SHA = "c7df675473fe97ced31e7358e6299d1920b4bc363765a0d12ff12c8653b36fe4"
+D1_BLIND_SHA = "1f4006fd4cfbd0e2a3d0ec5563211ee49eaacd203013c42759668c69ff6cb579"
+D1_DEV_SHA = "c722af63b710b092fc6e5c099898728b650caaa905d64c0ff25f24386528b9c7"
+
+
+def pinned_json(path: Path, digest: str) -> dict[str, Any]:
+    raw = path.read_bytes()
+    if hashlib.sha256(raw).hexdigest() != digest:
+        raise DatasetManifestError("frozen_hash_mismatch")
+    obj = json.loads(raw)
+    if not isinstance(obj, dict):
+        raise DatasetManifestError("invalid_frozen_document")
+    return obj
+
+
+def d1_sources() -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    receipt = pinned_json(M6_MANIFESTS / "d1_freeze_receipt.json", D1_RECEIPT_SHA)
+    if _compute_file_sha256(Path(__file__).with_name("d1_metrics.py")) != receipt["metrics_sha256"]:
+        raise DatasetManifestError("frozen_metrics_mismatch")
+    snapshot = pinned_json(
+        M6_MANIFESTS / "d1_source_manifest.json", receipt["source_manifest_sha256"]
+    )
+    videos = [v for v in snapshot["media_artifacts"] if v["media_kind"] == "video"]
+    validate_split_groups(videos)
+    return receipt, videos
+
+
+@dataclass(frozen=True)
+class EvalVideo:
+    video_id: str
+    path: Path
+    sha256: str
+    authorization: str
+    benchmark: str
+
+    @property
+    def profile(self) -> Literal["overview", "software_tutorial"]:
+        return "software_tutorial" if self.benchmark == "videogui" else "overview"
+
+
+@dataclass(frozen=True)
+class EvalRequest:
+    request_id: str
+    video_id: str
+    query: str
+    mode: Literal["qa", "event_localization"]
+
+
+@dataclass(frozen=True)
+class EvalDataset:
+    split: Literal["dev", "heldout", "fixture"]
+    input_sha256: str
+    videos: dict[str, EvalVideo]
+    requests: list[EvalRequest]
+
+
+def load_eval_dataset(
+    manifest: Path, event_manifest: Path | None, inputs: Path | None, media_root: Path
+) -> EvalDataset:
+    raw = manifest.read_bytes()
+    descriptor = json.loads(raw)
+    split: Literal["dev", "heldout", "fixture"]
+    if descriptor.get("fixture") is True:
+        split = "fixture"
+        if event_manifest or inputs:
+            raise DatasetManifestError("unexpected_fixture_input")
+        rows = descriptor["media_artifacts"]
+        validate_split_groups(rows)
+        doc = descriptor
+        digest = hashlib.sha256(raw).hexdigest()
+    else:
+        split = descriptor.get("partition")
+        if split not in {"heldout", "dev"} or descriptor != {
+            "dataset": "D1",
+            "partition": split,
+            "tasks": "regular_qa",
+        }:
+            raise DatasetManifestError("invalid_d1_descriptor")
+        _, all_videos = d1_sources()
+        rows = [v for v in all_videos if (v["split"] == "m6_holdout") == (split == "heldout")]
+        if split == "heldout":
+            if not event_manifest or json.loads(event_manifest.read_bytes()) != {
+                "dataset": "D1",
+                "partition": "heldout",
+                "tasks": "localization_requests",
+            }:
+                raise DatasetManifestError("heldout_event_manifest_required")
+            digest = D1_BLIND_SHA
+            doc = pinned_json(inputs or Path("data/d1-evaluator/m6_blind_inputs.json"), digest)
+        else:
+            if event_manifest:
+                raise DatasetManifestError("events_require_heldout")
+            digest = D1_DEV_SHA
+            dev = pinned_json(inputs or Path("data/d1-dev/questions_64.json"), digest)
+            doc = {"regular_qa": dev["questions"], "localization_requests": []}
+
+    videos: dict[str, EvalVideo] = {}
+    root = media_root.resolve(strict=True)
+    for row in rows:
+        name = row["relative_path"]
+        if (
+            not isinstance(name, str)
+            or PureWindowsPath(name).anchor
+            or ".." in PureWindowsPath(name).parts
+        ):
+            raise DatasetManifestError("unsafe_media_path")
+        path = (root / name).resolve(strict=True)
+        if not path.is_relative_to(root) or not path.is_file():
+            raise DatasetManifestError("unsafe_media_path")
+        vid, sha = row["artifact_id"], row["sha256"]
+        if not SHA256_PATTERN.fullmatch(sha) or _compute_file_sha256(path) != sha:
+            raise DatasetManifestError("media_hash_mismatch")
+        scope = row["authorization"]["usage_scope"]
+        if not isinstance(scope, str) or not scope.strip():
+            raise DatasetManifestError("media_authorization_required")
+        videos[vid] = EvalVideo(vid, path, sha, scope, row["benchmark"])
+
+    regular = [
+        EvalRequest(q["question_id"], q["video_id"], q["question_text"], "qa")
+        for q in doc["regular_qa"]
+    ]
+    events = []
+    for event in doc["localization_requests"]:
+        if event["mode"] != "event_localization":
+            raise DatasetManifestError("invalid_event_mode")
+        events.append(
+            EvalRequest(
+                event["request_id"], event["video_id"], event["query_text"], "event_localization"
+            )
+        )
+    requests = [*regular, *events]
+    ids = {r.request_id for r in requests}
+    if (
+        len(ids) != len(requests)
+        or not requests
+        or any(
+            not isinstance(s, str) or not s.strip()
+            for r in requests
+            for s in (r.request_id, r.query)
+        )
+        or any(r.video_id not in videos for r in requests)
+    ):
+        raise DatasetManifestError("invalid_request_binding")
+    if split != "fixture" and (
+        Counter(q.video_id for q in regular) != dict.fromkeys(videos, 4)
+        or (len(videos), len(regular), len(events))
+        != ((8, 32, 20) if split == "heldout" else (16, 64, 0))
+    ):
+        raise DatasetManifestError("incorrect_frozen_population")
+    return EvalDataset(split, digest, videos, requests)
 
 
 def _cli(argv: list[str] | None = None) -> int:
